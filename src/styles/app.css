@@ -1,0 +1,137 @@
+/* Camada do app sobre o CSS do protótipo: páginas, estados, acessibilidade de toque e peças novas. */
+#root{height:100%}
+a{color:inherit}
+:root{--ok:#1F7A4D;--warn:#8A5A00;--err:#B3261E}
+:root[data-theme="dark"]{--ok:#6FD3A0;--warn:#F2C14E;--err:#FF8A80}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ok:#6FD3A0;--warn:#F2C14E;--err:#FF8A80}}
+
+.skip-link{position:absolute;left:12px;top:-60px;z-index:200;padding:10px 14px;border-radius:10px;background:var(--text);color:var(--panel);font-weight:600;text-decoration:none}
+.skip-link:focus{top:12px}
+
+/* ---------- páginas (Explorar e Minhas playlists) ---------- */
+.page{min-height:100%;display:flex;flex-direction:column}
+.topbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px clamp(16px,3vw,32px);background:color-mix(in srgb,var(--chrome) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.topbar .brand{margin:0}
+.topbar .brand a{display:flex;align-items:center;gap:10px;text-decoration:none;border-radius:8px}
+.nav{margin-left:auto}
+.nav a{height:38px;padding:0 16px;display:flex;align-items:center;border-radius:9px;font-weight:500;font-size:14px;text-decoration:none;color:var(--muted);transition:color .3s;white-space:nowrap}
+.nav a[aria-current="page"]{color:var(--panel)}
+.nav a:not([aria-current="page"]):hover{color:var(--text)}
+.theme-btn{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;border:1px solid var(--line);background:var(--panel)}
+.theme-btn svg{width:18px;height:18px}
+.theme-btn:hover{background:var(--hover)}
+.page-main{flex:1;width:100%;max-width:1440px;margin:0 auto;padding:clamp(20px,4vw,48px) clamp(16px,3vw,32px) 64px}
+.hero{margin:0 0 clamp(24px,4vw,44px);max-width:860px}
+.hero h1{margin:0;font:700 clamp(40px,7vw,88px)/.88 var(--display);font-stretch:75%;letter-spacing:-.045em;text-transform:uppercase;text-wrap:balance}
+.hero p{margin:14px 0 0;color:var(--muted);font-size:clamp(15px,1.5vw,18px);max-width:60ch}
+.section{margin:0 0 clamp(28px,4vw,48px)}
+.section-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 14px}
+.section-head h2{margin:0;font:700 clamp(22px,2.6vw,30px)/1 var(--display);letter-spacing:-.02em}
+.section-head p{margin:0;color:var(--muted);font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:clamp(12px,1.6vw,20px);list-style:none;margin:0;padding:0}
+@media (max-width:520px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.ccard{display:flex;flex-direction:column;gap:10px;text-decoration:none;border-radius:18px;padding:0;height:100%}
+.ccard:hover .mini,.ccard:focus-visible .mini{transform:translateY(-3px)}
+.ccard:hover .mini .mdisc{rotate:40deg}
+.ccard-meta{display:flex;flex-direction:column;gap:2px;padding:0 4px}
+.ccard-meta b{font-weight:600;font-size:15px}
+.ccard-meta span{font-size:13px;color:var(--muted)}
+
+/* capa gerada de uma coleção ou playlist: selo na cor do tema, vinil e o nome */
+.mini{position:relative;aspect-ratio:1;border-radius:16px;overflow:hidden;background:var(--label);color:var(--on-label);transition:transform .35s var(--ease);container-type:inline-size;isolation:isolate}
+.mini h3{position:absolute;left:8cqi;right:8cqi;top:7cqi;margin:0;font:700 15cqi/.86 var(--display);font-stretch:75%;letter-spacing:-.04em;text-transform:uppercase;text-wrap:balance;overflow-wrap:anywhere;z-index:2}
+.mini .mdisc{position:absolute;width:78cqi;height:78cqi;right:-18cqi;bottom:-22cqi;border-radius:50%;background:radial-gradient(circle closest-side,transparent 0 38%,#0b0b0c 39% 96%,#050505 97%);box-shadow:0 0 0 1px rgba(255,255,255,.08),0 8cqi 16cqi rgba(0,0,0,.35);transition:rotate .8s var(--ease)}
+.mini .mdisc::before{content:"";position:absolute;inset:0;border-radius:50%;background:repeating-radial-gradient(circle,transparent 0 3.4cqi,rgba(255,255,255,.07) 3.5cqi 3.7cqi);-webkit-mask:radial-gradient(circle closest-side,transparent 0 40%,#000 41%);mask:radial-gradient(circle closest-side,transparent 0 40%,#000 41%)}
+.mini .mlabel{position:absolute;inset:31%;border-radius:50%;background:#555 center/cover}
+.mini .mlabel::after{content:"";position:absolute;inset:44%;border-radius:50%;background:var(--label)}
+.mini .mtag{position:absolute;left:8cqi;bottom:7cqi;z-index:2;font:600 5.4cqi/1.2 var(--ui);opacity:.9;max-width:52cqi}
+
+.skeleton{background:linear-gradient(90deg,var(--hover) 0 40%,var(--line) 50%,var(--hover) 60% 100%) 0 0/300% 100%;animation:shimmer 1.4s linear infinite;border-radius:6px;color:transparent!important}
+@keyframes shimmer{to{background-position:-150% 0}}
+.skeleton-line{display:block;height:12px;width:70%;margin-top:4px}
+
+/* ---------- estados ---------- */
+.state{display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--panel);max-width:560px}
+.state h2,.state h3{margin:0;font:700 20px/1.15 var(--display)}
+.state p{margin:0;color:var(--muted)}
+.state.err{border-color:color-mix(in srgb,var(--err) 45%,var(--line))}
+.banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;margin:0 0 18px;border-radius:12px;border:1px solid var(--line);background:var(--panel);font-size:14px}
+.banner b{font-weight:600}
+.banner.warn{border-color:color-mix(in srgb,var(--warn) 55%,var(--line))}
+.banner .ghost{height:36px}
+.tag{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;padding:1px 7px;border-radius:99px;border:1px solid currentColor;white-space:nowrap;line-height:1.5}
+.tag.muted{color:var(--muted)}
+
+/* ---------- minhas playlists ---------- */
+.lib-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 20px}
+.lib-actions .search{flex:1 1 220px;max-width:340px}
+.lib-actions .solid,.lib-actions .ghost{height:44px}
+.lib-import{display:grid;gap:10px;margin:0 0 24px;padding:16px;border:1px dashed var(--line);border-radius:16px;background:var(--panel)}
+.lib-import h2{margin:0;font:600 14px/1.2 var(--ui)}
+.lib-import .link-row input{flex:1;min-width:0;height:44px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--field)}
+.lib-import .link-row .ghost{height:44px}
+.pcard{display:flex;flex-direction:column;gap:10px;position:relative}
+.pcard>a{text-decoration:none;display:flex;flex-direction:column;gap:10px;border-radius:16px}
+.pcard-actions{display:flex;gap:4px;flex-wrap:wrap}
+.pcard-actions button{height:36px;padding:0 10px;border-radius:10px;font-size:13px;color:var(--muted);border:1px solid var(--line);background:var(--panel)}
+.pcard-actions button:hover{color:var(--text);background:var(--hover)}
+.rename{display:flex;gap:6px}
+.rename input{flex:1;min-width:0;height:36px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--field)}
+
+/* ---------- estúdio (editor + capa) ---------- */
+.crumbs{display:flex;align-items:center;gap:6px;margin:-8px 0 18px;font-size:13.5px;color:var(--muted);flex-wrap:wrap}
+.crumbs a{text-decoration:none;border-radius:6px;padding:2px 0}
+.crumbs a:hover{color:var(--text);text-decoration:underline}
+.panel-meta{margin:0 0 16px}
+.panel-meta h1{margin:0;font:700 26px/1 var(--display);letter-spacing:-.02em}
+.panel-meta p{margin:6px 0 0;color:var(--muted);font-size:14px}
+.panel-foot .row-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.panel-foot .row-btns .ghost{height:46px;border-radius:14px;font-size:15px}
+.bar .vol{display:flex;align-items:center;gap:8px;height:38px;padding:0 6px 0 4px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.bar .vol button{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--muted)}
+.bar .vol button:hover{color:var(--text);background:var(--hover)}
+.bar .vol svg{width:16px;height:16px}
+.bar .vol input{width:96px;accent-color:var(--text)}
+.bar .keys{font-size:12.5px;color:var(--muted);margin-right:auto}
+.bar .keys kbd{font:600 11.5px var(--ui);padding:1px 5px;border:1px solid var(--line);border-radius:5px;background:var(--panel)}
+@media (max-width:900px){.bar .keys{display:none}}
+
+.list li{position:relative}
+.list li.dragging{opacity:.55;background:var(--hover)}
+.list li.drop-before::before,.list li.drop-after::after{content:"";position:absolute;left:6px;right:6px;height:2px;border-radius:2px;background:var(--focus)}
+.list li.drop-before::before{top:-1px}
+.list li.drop-after::after{bottom:-1px}
+.handle{cursor:grab;touch-action:none}
+.handle:active{cursor:grabbing}
+.list .t-meta i .tag{margin-left:6px;font-size:10.5px;padding:0 5px}
+.results .t-meta i{display:flex;gap:6px;align-items:center}
+.results li button[disabled]{opacity:.55;cursor:default}
+.results .src{flex:none;font-size:11px;font-weight:600;color:var(--muted);padding-right:4px}
+.limit{font-size:12.5px;color:var(--warn);margin:8px 2px 0;font-weight:500}
+.row .np{font-size:.78em;opacity:.85;margin-left:.5em;white-space:nowrap}
+.now-text .np{font-size:.85em}
+.stage-note{position:absolute;left:50%;bottom:22px;translate:-50% 0;z-index:6;max-width:calc(100% - 40px);padding:8px 14px;border-radius:12px;background:var(--text);color:var(--panel);font-size:13.5px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+
+/* ---------- avisos com desfazer ---------- */
+.toasts{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom,0px));translate:-50% 0;z-index:150;display:grid;gap:8px;width:min(520px,calc(100vw - 32px));pointer-events:none}
+.toast{display:flex;align-items:center;gap:12px;padding:10px 10px 10px 16px;border-radius:14px;background:var(--text);color:var(--panel);box-shadow:0 10px 30px rgba(0,0,0,.3);pointer-events:auto;animation:dlg .3s var(--ease)}
+.toast p{margin:0;flex:1;font-size:14px}
+.toast button{height:36px;padding:0 12px;border-radius:10px;font-weight:600;color:var(--panel);border:1px solid color-mix(in srgb,var(--panel) 40%,transparent)}
+@media (max-width:900px){.toasts{bottom:86px}}
+
+.splash .skip{position:absolute;right:18px;top:18px;z-index:2;height:44px;padding:0 16px;border-radius:12px;color:#fff;border:1px solid rgba(255,255,255,.55);background:rgba(0,0,0,.18);font-weight:600}
+
+/* alvos de toque de 44 px */
+@media (pointer:coarse){
+  .icon{width:44px;height:44px}
+  .seg button,.nav a{min-height:44px}
+  .ctrl button{min-width:44px;min-height:44px}
+  .pcard-actions button{height:44px}
+}
+@media (max-width:640px){
+  .topbar{gap:10px}
+  .nav{order:3;width:100%;margin-left:0}
+  .nav a{flex:1;justify-content:center}
+  .theme-btn{margin-left:auto}
+}
