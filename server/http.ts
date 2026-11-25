@@ -1,6 +1,7 @@
 /** Chamada HTTP às origens: timeout, limite de tamanho e erro tipado, sem vazar detalhe para o cliente. */
 
-export const UPSTREAM_TIMEOUT_MS = 6_000;
+/** O feed da Apple às vezes leva 3–5 s a frio; 8 s cobre isso e ainda cabe no limite da Function. */
+export const UPSTREAM_TIMEOUT_MS = 8_000;
 /** Maior resposta aceita de uma origem (playlist de 100 faixas do Deezer tem ~160 KB). */
 export const MAX_UPSTREAM_BYTES = 2_000_000;
 
