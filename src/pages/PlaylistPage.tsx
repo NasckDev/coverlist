@@ -82,21 +82,15 @@ export function PlaylistPage({ id }: { id: string }) {
               <>
                 <TrackSearch
                   have={have}
-                  count={count}
                   onAdd={(t) => {
                     const result = store.addTrack(playlist.id, t);
-                    if (result === "full") toast(`Limite de ${MAX_TRACKS} faixas por playlist.`);
+                    if (result === "full") toast(`A playlist já tem ${MAX_TRACKS} faixas, o limite. Remova uma para adicionar outra.`);
                   }}
                 />
                 <details className="import">
                   <summary>Importar de um link do Deezer ou Spotify</summary>
                   <ImportLink id={`link-${playlist.id}`} onImported={onImported} />
                 </details>
-                {count >= MAX_TRACKS - 5 && (
-                  <p className="limit">
-                    {count >= MAX_TRACKS ? `Playlist cheia: ${MAX_TRACKS} de ${MAX_TRACKS} faixas.` : `${count} de ${MAX_TRACKS} faixas: quase no limite.`}
-                  </p>
-                )}
                 <EditableTrackList
                   tracks={playlist.tracks}
                   queueKey={queueKey}
@@ -140,7 +134,7 @@ export function PlaylistPage({ id }: { id: string }) {
           },
         ]}
         foot={
-          <button type="button" className="solid share-btn" onClick={() => setSharing(true)}>
+          <button type="button" className="solid share-btn" aria-label="Compartilhar playlist" onClick={() => setSharing(true)}>
             <Icon.share />
             <span>Compartilhar playlist</span>
           </button>

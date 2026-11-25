@@ -9,7 +9,8 @@ import { LAYOUT_KEYS, type LayoutKey } from "../lib/design";
  * - v2: faixas no tipo `Track` do proxy, prévia do Deezer guardada só como id.
  */
 export const SCHEMA_VERSION = 2;
-export const MAX_TRACKS = 50;
+/** Mesmo teto das coleções (o proxy devolve até 100 faixas): usar uma coleção como base nunca nasce cheia de surpresa. */
+export const MAX_TRACKS = 100;
 export const MAX_PLAYLISTS = 100;
 export const NAME_MAX = 40;
 export const DESC_MAX = 80;
@@ -71,6 +72,9 @@ function validatePreview(v: unknown, id: string): Preview {
   }
   if (v.kind === "deezer" && typeof v.trackId === "string" && /^\d{1,15}$/.test(v.trackId) && id === `dz:${v.trackId}`) {
     return { kind: "deezer", trackId: v.trackId };
+  }
+  if (v.kind === "itunes" && typeof v.trackId === "string" && /^\d{1,15}$/.test(v.trackId) && id === `it:${v.trackId}` && typeof v.country === "string" && /^[a-z]{2}$/.test(v.country)) {
+    return { kind: "itunes", trackId: v.trackId, country: v.country };
   }
   return null;
 }

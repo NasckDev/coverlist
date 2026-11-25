@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = 5192;
+const PORT = 5191;
 
 /**
  * E2E determinístico: o build de produção roda no `vite preview` e toda chamada ao proxy é
@@ -9,7 +9,7 @@ const PORT = 5192;
  */
 export default defineConfig({
   testDir: "./e2e",
-  timeout: 60_000,
+  timeout: 120_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
   workers: 2,

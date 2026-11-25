@@ -10,12 +10,20 @@ export type UpstreamFailure = "timeout" | "http" | "invalid" | "not_found" | "qu
 export class UpstreamError extends Error {
   readonly failure: UpstreamFailure;
   readonly upstream: string;
+  readonly status: number | null;
 
-  constructor(upstream: string, failure: UpstreamFailure, detail: string) {
+  constructor(upstream: string, failure: UpstreamFailure, detail: string, status: number | null = null) {
     super(`${upstream}: ${failure} (${detail})`);
     this.name = "UpstreamError";
     this.failure = failure;
     this.upstream = upstream;
+    this.status = status;
+  }
+
+  /** Falha que pode passar sozinha: timeout, rede, 429 ou 5xx. 4xx e resposta malformada não melhoram repetindo. */
+  get temporary(): boolean {
+    if (this.failure === "timeout" || this.failure === "quota") return true;
+    return this.failure === "http" && (this.status === null || this.status === 429 || this.status >= 500);
   }
 }
 
@@ -29,6 +37,57 @@ export type FetchLike = (input: string, init?: { signal?: AbortSignal; headers?:
 export interface UpstreamOptions {
   fetch?: FetchLike;
   timeoutMs?: number;
+  /** Espera antes de repetir uma chamada que falhou por motivo temporário (0 nos testes). */
+  retryDelayMs?: number;
+}
+
+/** Repete uma vez, com espera crescente, só quando a falha é temporária. */
+export async function withRetry<T>(run: () => Promise<T>, options: UpstreamOptions, attempts = 2): Promise<T> {
+  let last: unknown;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await run();
+    } catch (error) {
+      last = error;
+      if (!(error instanceof UpstreamError) || !error.temporary || attempt === attempts - 1) break;
+      const delay = (options.retryDelayMs ?? 400) * (attempt + 1);
+      if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw last;
+}
+
+/**
+ * Cache em memória por instância da Function (some quando ela esfria). Guarda o último valor bom
+ * para servir enquanto a origem estiver fora (stale-if-error), até staleMs.
+ */
+export class TtlCache<T> {
+  private readonly entries = new Map<string, { value: T; at: number }>();
+  constructor(
+    private readonly ttlMs: number,
+    private readonly staleMs: number,
+    private readonly max = 64,
+  ) {}
+
+  fresh(key: string, now = Date.now()): T | undefined {
+    const hit = this.entries.get(key);
+    return hit && now - hit.at < this.ttlMs ? hit.value : undefined;
+  }
+
+  stale(key: string, now = Date.now()): T | undefined {
+    const hit = this.entries.get(key);
+    return hit && now - hit.at < this.staleMs ? hit.value : undefined;
+  }
+
+  set(key: string, value: T, now = Date.now()) {
+    this.entries.delete(key);
+    this.entries.set(key, { value, at: now });
+    while (this.entries.size > this.max) this.entries.delete(this.entries.keys().next().value as string);
+  }
+
+  clear() {
+    this.entries.clear();
+  }
 }
 
 /**
@@ -42,7 +101,7 @@ export async function fetchJson(upstream: string, url: string, options: Upstream
   try {
     const response = await doFetch(url, { signal: controller.signal, headers: { Accept: "application/json" } });
     if (response.status === 404) throw new UpstreamError(upstream, "not_found", "http 404");
-    if (!response.ok) throw new UpstreamError(upstream, "http", `http ${response.status}`);
+    if (!response.ok) throw new UpstreamError(upstream, "http", `http ${response.status}`, response.status);
     const length = Number(response.headers.get("content-length") || 0);
     if (length > MAX_UPSTREAM_BYTES) throw new UpstreamError(upstream, "invalid", "too large");
     const body = await response.text();

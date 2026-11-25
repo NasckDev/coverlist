@@ -86,7 +86,8 @@ describe("Coleção", () => {
     expect(screen.getAllByRole("button", { name: /\(sem prévia\)$/ })).toHaveLength(1);
     await userEvent.click(screen.getByRole("button", { name: "Usar como base" }));
     await waitFor(() => expect(window.location.hash).toMatch(/^#\/p\/p[a-z0-9]+$/));
-    expect(await screen.findByText(/Playlist criada com as 50 primeiras de 100 faixas/)).toBeInTheDocument();
+    expect(await screen.findByText("Playlist criada com 100 faixas de “Top Mundo”.")).toBeInTheDocument();
+    expect(screen.queryByText(/limite/i)).not.toBeInTheDocument();
   });
 
   it("mostra a prévia indisponível ao tocar a faixa sem prévia", async () => {
@@ -100,7 +101,7 @@ describe("Coleção", () => {
 describe("Busca unificada", () => {
   it("mostra Deezer e iTunes sem duplicatas e marca o que já está na playlist", async () => {
     const onAdd = vi.fn();
-    wrap(<TrackSearch have={new Set(["dz:3602074142"])} count={3} onAdd={onAdd} />);
+    wrap(<TrackSearch have={new Set(["dz:3602074142"])} onAdd={onAdd} />);
     await userEvent.type(screen.getByRole("searchbox", { name: "Buscar música ou artista" }), "anitta");
     const results = await screen.findByRole("list", { name: "Resultados da busca" });
     await waitFor(() => expect(within(results).getAllByRole("button").length).toBeGreaterThan(5));
@@ -122,16 +123,12 @@ describe("Busca unificada", () => {
         }),
       ),
     );
-    wrap(<TrackSearch have={new Set()} count={0} onAdd={() => undefined} />);
+    wrap(<TrackSearch have={new Set()} onAdd={() => undefined} />);
     await userEvent.type(screen.getByRole("searchbox"), "abc");
     expect(await screen.findByText("O Deezer não respondeu; mostrando só o que a outra fonte trouxe.")).toBeInTheDocument();
     expect(screen.getByText("sem prévia")).toBeInTheDocument();
   });
 
-  it("bloqueia a adição no limite de faixas", async () => {
-    wrap(<TrackSearch have={new Set()} count={50} onAdd={() => undefined} />);
-    expect(screen.getByText("Limite de 50 faixas. Remova uma para adicionar outra.")).toBeInTheDocument();
-  });
 });
 
 describe("Minhas playlists", () => {
@@ -175,6 +172,6 @@ describe("Minhas playlists", () => {
     await user.type(field, "https://www.deezer.com/br/playlist/3155776842");
     await user.click(screen.getByRole("button", { name: "Importar" }));
     await waitFor(() => expect(window.location.hash).toMatch(/^#\/p\/p/));
-    expect(await screen.findByText("Importadas as 50 primeiras de 100 faixas (limite por playlist).")).toBeInTheDocument();
+    expect(await screen.findByText("100 faixas importadas do Deezer.")).toBeInTheDocument();
   });
 });

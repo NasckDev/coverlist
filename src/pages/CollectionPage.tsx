@@ -96,8 +96,8 @@ export function CollectionPage({ id }: { id: string }) {
     if (!created) return toast("Você chegou ao limite de playlists. Exclua uma para criar outra.");
     toast(
       tracks.length > MAX_TRACKS
-        ? `Playlist criada com as ${MAX_TRACKS} primeiras de ${tracks.length} faixas (limite por playlist).`
-        : `Playlist criada a partir de “${detail.title}”.`,
+        ? `Playlist criada com as ${MAX_TRACKS} primeiras das ${tracks.length} faixas de “${detail.title}” (limite por playlist).`
+        : `Playlist criada com ${plural(created.tracks.length, "faixa", "faixas")} de “${detail.title}”.`,
     );
     navigate(href.playlist(created.id));
   };

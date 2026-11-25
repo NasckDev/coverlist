@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import type { ThemeKey, Track } from "../../server/types";
 import { artBackground, fmt, summaryLine, themeVars, type LayoutKey } from "../lib/design";
 import { NO_PREVIEW_MESSAGE, usePlayer } from "../player/PlayerProvider";
+import { Icon } from "./icons";
 import { isSplashActive, onSplashExit } from "./splashState";
 
 export interface CoverMeta {
@@ -201,6 +202,7 @@ export function Cover({ meta, tracks, queueKey }: { meta: CoverMeta; tracks: Tra
   const rep = `${name} ● `.repeat(Math.max(2, Math.ceil(44 / (name.length + 3))));
   const noPreview = active && (player.status === "unavailable" || player.status === "error");
   const by = meta.by.trim();
+  const muted = player.muted || player.volume === 0;
 
   return (
     <div className="canvas" style={themeVars(meta.theme) as CSSProperties}>
@@ -307,6 +309,9 @@ export function Cover({ meta, tracks, queueKey }: { meta: CoverMeta; tracks: Tra
                 <path d="M11 2h2v12h-2zM2 2v12l8-6z" />
               </svg>
             </button>
+            <button type="button" className="mute" aria-label={muted ? "Ativar som" : "Silenciar"} aria-pressed={muted} onClick={player.toggleMute}>
+              {muted ? <Icon.mute /> : <Icon.volume />}
+            </button>
           </div>
           <div className="now-text swap" key={current?.id ?? "none"} aria-live="polite">
             <b>{current ? current.title : "Nada tocando"}</b>
@@ -316,6 +321,9 @@ export function Cover({ meta, tracks, queueKey }: { meta: CoverMeta; tracks: Tra
             </i>
           </div>
           <div className="seek">
+            <span className="pv" title="As fontes públicas liberam um trecho de 30 s de cada faixa">
+              Prévia
+            </span>
             <span ref={curRef}>0:00</span>
             <label className="sr" htmlFor={`seek-${queueKey}`}>
               Posição na prévia
@@ -335,6 +343,18 @@ export function Cover({ meta, tracks, queueKey }: { meta: CoverMeta; tracks: Tra
               }}
             />
             <span ref={durRef}>0:30</span>
+            <label className="sr" htmlFor={`vol-${queueKey}`}>
+              Volume
+            </label>
+            <input
+              id={`vol-${queueKey}`}
+              className="vol-range"
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round((player.muted ? 0 : player.volume) * 100)}
+              onChange={(e) => player.setVolume(Number(e.target.value) / 100)}
+            />
           </div>
         </div>
       </div>

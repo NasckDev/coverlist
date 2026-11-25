@@ -112,6 +112,15 @@ export function useSearch(term: string) {
 export const fetchDeezerPlaylist = (id: string) => apiGet<ImportedPlaylist>("playlist", { id });
 export const fetchSpotifyName = (id: string) => apiGet<SpotifyName>("spotify", { id });
 
+/** Prévia do iTunes que o lookup em lote da parada não trouxe: busca a faixa sozinha na hora de tocar. */
+export function resolveItunesPreview(client: QueryClient, trackId: string, country: string): Promise<ResolvedPreview> {
+  return client.fetchQuery({
+    queryKey: ["preview-it", trackId, country],
+    queryFn: ({ signal }) => apiGet<ResolvedPreview>("lookup", { id: trackId, country }, signal),
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
 /** Margem antes da expiração da URL assinada do Deezer. */
 const PREVIEW_SAFETY_MS = 60_000;
 

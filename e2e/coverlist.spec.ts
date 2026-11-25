@@ -24,7 +24,9 @@ test.describe("Coverlist", () => {
     await cover.getByRole("button", { name: "Próxima faixa" }).click();
     await expect(cover.locator(".row[aria-current='true']")).toContainText("Boston");
     if (!isNarrow(page)) {
-      await page.locator("body").press("Space");
+      // Atalho global: com o foco fora de botões e campos, espaço pausa.
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+      await page.keyboard.press("Space");
       await expect(cover.getByRole("button", { name: "Tocar", exact: true })).toBeVisible();
     } else {
       await cover.getByRole("button", { name: "Pausar" }).click();
@@ -33,8 +35,13 @@ test.describe("Coverlist", () => {
 
     await page.getByRole("button", { name: "Usar como base" }).click();
     await expect(page).toHaveURL(/#\/p\/p[a-z0-9]+$/);
-    await expect(page.getByText("Playlist criada com as 50 primeiras de 100 faixas (limite por playlist).")).toBeVisible();
-    await expect(page.getByText("Playlist cheia: 50 de 50 faixas.")).toBeVisible();
+    await expect(page.getByText("Playlist criada com 100 faixas de “Top Mundo”.")).toBeVisible();
+    await expect(page.getByText(/limite/i)).toHaveCount(0);
+    // A playlist copiada continua editável: dá para buscar e adicionar (100 é o teto, a cópia veio com 100).
+    await page.getByRole("searchbox", { name: "Buscar música ou artista" }).fill("anitta");
+    await page.getByRole("list", { name: "Resultados da busca" }).getByRole("button").nth(1).click();
+    await expect(page.getByText("A playlist já tem 100 faixas, o limite. Remova uma para adicionar outra.")).toBeVisible();
+    await expect(page.getByText(/limite/i)).toHaveCount(1);
   });
 
   test("criar playlist → buscar e adicionar → reordenar (teclado e arrastar) → compartilhar link", async ({ page, context }) => {
@@ -117,7 +124,7 @@ test.describe("Coverlist", () => {
     await other.close();
   });
 
-  test("excluir playlist com desfazer, exportar JSON e link inválido", async ({ page }) => {
+  test("excluir com desfazer, exportar e importar JSON, importar link do Deezer, tema e link inválido", async ({ page }) => {
     await offline(page);
     await page.goto("./#/p");
     await page.getByRole("button", { name: "Nova playlist" }).click();
@@ -128,8 +135,27 @@ test.describe("Coverlist", () => {
     await expect(page.getByRole("link", { name: /^Abrir Nova playlist/ })).toBeVisible();
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "Exportar JSON" }).click();
-    expect((await download).suggestedFilename()).toMatch(/^coverlist-playlists-\d{4}-\d{2}-\d{2}\.json$/);
+    const file = await download;
+    expect(file.suggestedFilename()).toMatch(/^coverlist-playlists-\d{4}-\d{2}-\d{2}\.json$/);
+    // O arquivo exportado volta pelo importar: a playlist aparece de novo, com outro id.
+    await page.locator("input[type=file]").setInputFiles((await file.path())!);
+    await expect(page.getByText("1 playlist importada.")).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Abrir Nova playlist/ })).toHaveCount(2);
+
+    await page.getByRole("textbox", { name: "Link da playlist" }).fill("https://www.deezer.com/br/playlist/3155776842");
+    await page.getByRole("button", { name: "Importar", exact: true }).click();
+    await expect(page).toHaveURL(/#\/p\/p[a-z0-9]+$/);
+    await expect(page.getByText("100 faixas importadas do Deezer.")).toBeVisible();
+    await expect(page.locator(".canvas .title")).toHaveText("Top Worldwide");
+
+    await page.goto("./#/p");
+    const theme = page.getByRole("button", { name: /^Tema:/ });
+    await theme.click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await theme.click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await expectNoSeriousA11yIssues(page);
+    await theme.click();
 
     await page.goto("./#/s/link-adulterado");
     await expect(page.getByRole("alert")).toContainText("Link inválido");
@@ -147,12 +173,17 @@ test.describe("Coverlist", () => {
 
   test("abertura aparece na primeira visita e pode ser pulada", async ({ page }) => {
     await offline(page, { splash: true });
+    // Relógio parado: a abertura sai sozinha em 2,4 s, e a máquina de teste pode ser lenta.
+    await page.clock.install();
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
     await page.goto("./#/c/top-mundo");
     const skip = page.getByRole("button", { name: "Pular abertura" });
     await expect(skip).toBeVisible();
     // Qualquer tecla (ou clique) pula; a abertura também sai sozinha em 2,4 s.
     await page.keyboard.press("Escape");
+    await page.clock.runFor(2000);
     await expect(skip).toBeHidden();
+    await page.clock.resume();
     await page.reload();
     await expect(page.getByRole("heading", { level: 1, name: "Top Mundo" })).toBeVisible();
     await expect(skip).toHaveCount(0);

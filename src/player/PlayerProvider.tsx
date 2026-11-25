@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Track } from "../../server/types";
-import { resolveDeezerPreview } from "../lib/api";
+import { resolveDeezerPreview, resolveItunesPreview } from "../lib/api";
 
 export type PlayerStatus = "idle" | "loading" | "playing" | "paused" | "unavailable" | "error";
 
@@ -105,7 +105,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       if (track.preview.kind === "url") url = track.preview.url;
       else if (autoplay) {
         try {
-          url = (await resolveDeezerPreview(client, track.preview.trackId)).url;
+          url =
+            track.preview.kind === "deezer"
+              ? (await resolveDeezerPreview(client, track.preview.trackId)).url
+              : (await resolveItunesPreview(client, track.preview.trackId, track.preview.country)).url;
         } catch {
           if (my === token.current) patch({ status: "error", message: PLAY_ERROR_MESSAGE });
           return;

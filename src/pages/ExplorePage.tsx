@@ -25,7 +25,7 @@ function CollectionCard({ summary }: { summary: CollectionSummary }) {
   return (
     <li>
       <a className="ccard" href={href.collection(summary.id)} aria-label={`${summary.title}. ${typeof meta === "string" ? meta : "Carregando"}. ${summary.source.label}`}>
-        <MiniCover title={summary.title} theme={summary.theme} track={detail?.tracks.find((t) => t.artwork) ?? null} tag={summary.source.kind === "apple-chart" ? "Apple Music" : "Deezer"} />
+        <MiniCover title={summary.title} theme={summary.theme} tracks={detail?.tracks ?? []} tag={summary.source.kind === "apple-chart" ? "Apple Music" : "Deezer"} />
         <span className="ccard-meta">
           <b>{summary.title}</b>
           <span>{meta}</span>

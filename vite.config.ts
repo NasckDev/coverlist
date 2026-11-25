@@ -68,7 +68,7 @@ export default defineConfig({
   base: process.env.COVERLIST_BASE ?? "/",
   plugins: [react(), coverlistApi()],
   server: { port: 5191, strictPort: true },
-  preview: { port: 5192, strictPort: true },
+  preview: { port: 5191, strictPort: true },
   build: { target: "es2022", sourcemap: false },
   test: {
     globals: true,

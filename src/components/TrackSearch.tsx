@@ -2,14 +2,13 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { Track } from "../../server/types";
 import { failureMessage, useSearch } from "../lib/api";
 import { artBackground, fmt } from "../lib/design";
-import { MAX_TRACKS } from "../store/schema";
 import { Icon } from "./icons";
 
 const DEBOUNCE_MS = 300;
 const SOURCE_NAME = { deezer: "Deezer", itunes: "iTunes" } as const;
 
 /** Busca unificada (Deezer + iTunes pelo proxy), com debounce, estados e faixas já adicionadas marcadas. */
-export function TrackSearch({ have, count, onAdd }: { have: ReadonlySet<string>; count: number; onAdd: (t: Track) => void }) {
+export function TrackSearch({ have, onAdd }: { have: ReadonlySet<string>; onAdd: (t: Track) => void }) {
   const [term, setTerm] = useState("");
   const [debounced, setDebounced] = useState("");
   const [open, setOpen] = useState(false);
@@ -17,7 +16,6 @@ export function TrackSearch({ have, count, onAdd }: { have: ReadonlySet<string>;
   const input = useRef<HTMLInputElement>(null);
   const listId = useId();
   const search = useSearch(debounced);
-  const full = count >= MAX_TRACKS;
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(term), DEBOUNCE_MS);
@@ -37,8 +35,7 @@ export function TrackSearch({ have, count, onAdd }: { have: ReadonlySet<string>;
   const sources = search.data?.sources;
   const partial = sources && (sources.deezer === "error" || sources.itunes === "error");
   let note = "";
-  if (full) note = `Limite de ${MAX_TRACKS} faixas. Remova uma para adicionar outra.`;
-  else if (term.trim().length === 1) note = "Digite pelo menos 2 letras.";
+  if (term.trim().length === 1) note = "Digite pelo menos 2 letras.";
   else if (q.length >= 2 && search.isError) note = failureMessage(search.error);
   else if (q.length >= 2 && search.isFetching && !search.data) note = "Buscando no Deezer e no iTunes…";
   else if (q.length >= 2 && search.data && !tracks.length) note = `Nada encontrado para “${q}”.`;
@@ -88,7 +85,7 @@ export function TrackSearch({ have, count, onAdd }: { have: ReadonlySet<string>;
             const already = have.has(t.id);
             return (
               <li key={t.id}>
-                <button type="button" disabled={already || full} onClick={() => add(t)} aria-label={`Adicionar ${t.title}, de ${t.artist}${already ? " (já está na playlist)" : ""}`}>
+                <button type="button" disabled={already} onClick={() => add(t)} aria-label={`Adicionar ${t.title}, de ${t.artist}${already ? " (já está na playlist)" : ""}`}>
                   <span className="thumb" style={{ background: artBackground(t) }} />
                   <span className="t-meta">
                     <b>{t.title}</b>
@@ -107,7 +104,7 @@ export function TrackSearch({ have, count, onAdd }: { have: ReadonlySet<string>;
             );
           })}
       </ul>
-      <p className={full ? "limit" : "note"} aria-live="polite">
+      <p className="note" aria-live="polite">
         {note}
       </p>
     </div>

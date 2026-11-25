@@ -88,14 +88,6 @@ a{color:inherit}
 .panel-meta p{margin:6px 0 0;color:var(--muted);font-size:14px}
 .panel-foot .row-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .panel-foot .row-btns .ghost{height:46px;border-radius:14px;font-size:15px}
-.bar .vol{display:flex;align-items:center;gap:8px;height:38px;padding:0 6px 0 4px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
-.bar .vol button{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--muted)}
-.bar .vol button:hover{color:var(--text);background:var(--hover)}
-.bar .vol svg{width:16px;height:16px}
-.bar .vol input{width:96px;accent-color:var(--text)}
-.bar .keys{font-size:12.5px;color:var(--muted);margin-right:auto}
-.bar .keys kbd{font:600 11.5px var(--ui);padding:1px 5px;border:1px solid var(--line);border-radius:5px;background:var(--panel)}
-@media (max-width:900px){.bar .keys{display:none}}
 
 .list li{position:relative}
 .list li.dragging{opacity:.55;background:var(--hover)}
@@ -137,3 +129,30 @@ a{color:inherit}
 }
 .brand .brand-link{display:flex;align-items:center;gap:10px;text-decoration:none;border-radius:8px}
 a.ghost,a.solid{text-decoration:none}
+
+/* Contraste AA nos textos secundários da capa: o protótipo usava opacidade .6–.7, abaixo de 4,5:1 em alguns selos. */
+.kicker,.row .d,.seek span{opacity:.85}
+.sum,.row .n,.row .m i,.now-text i{opacity:.85}
+.inner[data-layout="poster"] :is(.kicker,.sum,.row .n,.row .m i,.row .d,.now-text i,.seek span){opacity:1}
+.mini .mtag{opacity:1;padding:.4cqi 2cqi;border-radius:99px;background:color-mix(in srgb,var(--ink) 88%,transparent);color:var(--paper)}
+
+/* ---------- player da capa: volume e rótulo de prévia, no mesmo traço do seek ---------- */
+.ctrl .mute{opacity:.85}
+.seek .pv{min-width:0;font-size:.8em;letter-spacing:.02em;text-transform:uppercase;font-weight:600}
+.seek input.vol-range{flex:0 0 5.5em;min-width:0}
+.inner[data-layout="deck"] .seek input.vol-range{display:none}
+@container canvas (max-width:680px){.seek input.vol-range{display:none}}
+
+/* ---------- atalhos: ícone no painel + diálogo no estilo do compartilhar ---------- */
+.brand .keys-btn{margin-left:auto}
+.brand .keys-btn+.present-btn{margin-left:2px}
+@media (max-width:900px){.brand .keys-btn{display:none}}
+dialog.keys-dlg{width:min(440px,calc(100vw - 24px))}
+.keys-in{padding:20px;gap:12px}
+.keys-list{margin:0;display:grid;width:100%}
+.keys-list div{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 0;border-top:1px solid var(--line)}
+.keys-list dt{display:flex;gap:4px;flex:none}
+.keys-list dd{margin:0;color:var(--muted);font-size:14px;text-align:right}
+kbd{font:600 12px/1 var(--ui);padding:5px 7px;border:1px solid var(--line);border-bottom-width:2px;border-radius:7px;background:var(--field);color:var(--text)}
+/* Explorar: a grade de cada seção estica para preencher a largura (sem coluna vazia no fim). */
+.section .grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))}

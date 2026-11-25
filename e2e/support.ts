@@ -8,6 +8,8 @@ const WAV = Buffer.from(silentWav(3));
 
 export async function offline(page: Page, options: { splash?: boolean } = {}) {
   if (!options.splash) await page.addInitScript(() => sessionStorage.setItem("coverlist:intro", "1"));
+  // O Playwright consulta as rotas da última para a primeira: o bloqueio geral vem antes das exceções.
+  await page.route(/^https?:\/\/(?!localhost)/, (route) => route.abort());
   await page.route("**/api/coverlist**", async (route) => {
     const { status, headers, body } = await callFixtureProxy(route.request().url());
     await route.fulfill({ status, headers, body });
@@ -18,7 +20,6 @@ export async function offline(page: Page, options: { splash?: boolean } = {}) {
   await page.route(/^https:\/\/([a-z0-9-]+\.)?(mzstatic\.com|dzcdn\.net)\/.*\.(jpg|png)$/, (route) =>
     route.fulfill({ status: 200, body: PIXEL, headers: { "content-type": "image/png", "access-control-allow-origin": "*" } }),
   );
-  await page.route(/^https?:\/\/(?!localhost)/, (route) => route.abort());
 }
 
 export async function expectNoSeriousA11yIssues(page: Page) {

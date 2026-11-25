@@ -56,12 +56,14 @@ export function artFromRef(ref: string): Artwork | null {
 function previewRef(preview: Preview): string {
   if (!preview) return "";
   if (preview.kind === "deezer") return "z";
+  if (preview.kind === "itunes") return `l${preview.country}`;
   const it = IT_AUDIO.exec(preview.url);
   return it && !it[1].includes("..") ? `i${it[1]}` : "";
 }
 
 function previewFromRef(ref: string, id: string): Preview {
   if (ref === "z" && /^dz:\d{1,15}$/.test(id)) return { kind: "deezer", trackId: id.slice(3) };
+  if (/^l[a-z]{2}$/.test(ref) && /^it:\d{1,15}$/.test(id)) return { kind: "itunes", trackId: id.slice(3), country: ref.slice(1) };
   if (ref.startsWith("i") && SAFE_PATH.test(ref.slice(1)) && !ref.includes("..")) {
     return { kind: "url", url: `https://audio-ssl.itunes.apple.com/itunes-assets/${ref.slice(1)}` };
   }

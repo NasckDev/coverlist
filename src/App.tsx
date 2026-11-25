@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { ErrorState, SkipLink, Topbar } from "./components/Chrome";
 import { Splash } from "./components/Splash";
 import { THEMES } from "./lib/design";
 import { href, useRoute, type Route } from "./lib/router";
-import { CollectionPage } from "./pages/CollectionPage";
 import { ExplorePage } from "./pages/ExplorePage";
-import { LibraryPage } from "./pages/LibraryPage";
-import { PlaylistPage } from "./pages/PlaylistPage";
-import { SharedPage } from "./pages/SharedPage";
+
+// Explorar vai no pacote inicial; as outras telas carregam sob demanda.
+const CollectionPage = lazy(() => import("./pages/CollectionPage").then((m) => ({ default: m.CollectionPage })));
+const LibraryPage = lazy(() => import("./pages/LibraryPage").then((m) => ({ default: m.LibraryPage })));
+const PlaylistPage = lazy(() => import("./pages/PlaylistPage").then((m) => ({ default: m.PlaylistPage })));
+const SharedPage = lazy(() => import("./pages/SharedPage").then((m) => ({ default: m.SharedPage })));
 
 const TITLES: Record<Route["name"], string> = {
   explore: "Coverlist: a capa viva da sua playlist",
@@ -59,7 +61,9 @@ export function App({ showSplash = false }: { showSplash?: boolean }) {
 
   return (
     <>
-      <Page route={route} />
+      <Suspense fallback={<p className="sr" role="status">Carregando…</p>}>
+        <Page route={route} />
+      </Suspense>
       {splash && <Splash color={THEMES.cobalto.label} onDone={done} />}
     </>
   );

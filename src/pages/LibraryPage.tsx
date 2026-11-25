@@ -29,7 +29,7 @@ function PlaylistCard({ playlist }: { playlist: Playlist }) {
   return (
     <li className="pcard">
       <a href={href.playlist(playlist.id)} aria-label={`Abrir ${name0}, ${summaryLine(playlist.tracks) || "sem faixas"}`}>
-        <MiniCover title={name0} theme={playlist.theme} track={playlist.tracks.find((t) => t.artwork) ?? playlist.tracks[0] ?? null} tag={playlist.by ? `de ${playlist.by}` : undefined} />
+        <MiniCover title={name0} theme={playlist.theme} tracks={playlist.tracks} tag={playlist.by ? `de ${playlist.by}` : undefined} />
         <span className="ccard-meta">
           <b>{name0}</b>
           <span>
@@ -142,7 +142,11 @@ export function LibraryPage() {
       origin: `Deezer: ${src.title}`,
     });
     if (!p) return `Limite de ${MAX_PLAYLISTS} playlists atingido.`;
-    toast(src.tracks.length > MAX_TRACKS ? `Importadas as ${MAX_TRACKS} primeiras de ${src.total} faixas (limite por playlist).` : `${plural(p.tracks.length, "faixa importada", "faixas importadas")} do Deezer.`);
+    toast(
+      src.total > p.tracks.length
+        ? `Importadas ${p.tracks.length} das ${src.total} faixas da playlist do Deezer (limite de ${MAX_TRACKS} por playlist).`
+        : `${plural(p.tracks.length, "faixa importada", "faixas importadas")} do Deezer.`,
+    );
     navigate(href.playlist(p.id));
   };
 

@@ -11,7 +11,7 @@ export interface Theme {
 /** As cinco cores de selo do protótipo. */
 export const THEMES: Record<ThemeKey, Theme> = {
   cobalto: { name: "Cobalto", paper: "#EFEFEA", ink: "#15161A", label: "#2B3BF0", on: "#FFFFFF" },
-  brasa: { name: "Brasa", paper: "#F2E6E4", ink: "#2A1115", label: "#E3261C", on: "#FFFFFF" },
+  brasa: { name: "Brasa", paper: "#F2E6E4", ink: "#2A1115", label: "#CF2418", on: "#FFFFFF" },
   noite: { name: "Noite", paper: "#1A1C24", ink: "#E9E6DC", label: "#F5B800", on: "#1A1C24" },
   menta: { name: "Menta", paper: "#DCEDE3", ink: "#0F2B22", label: "#FF5A92", on: "#2B0514" },
   lilas: { name: "Lilás", paper: "#E7E2F5", ink: "#1C1440", label: "#FF6A1A", on: "#1C1440" },

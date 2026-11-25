@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Track } from "../../server/types";
 import { usePlayer } from "../player/PlayerProvider";
 import { Cover, type CoverMeta } from "./Cover";
@@ -42,19 +42,59 @@ function usePlayerShortcuts(enabled: boolean) {
   }, [enabled]);
 }
 
-function Volume() {
-  const player = usePlayer();
-  const muted = player.muted || player.volume === 0;
+const SHORTCUTS: [string[], string][] = [
+  [["Espaço"], "Toca ou pausa"],
+  [["←", "→"], "Volta ou avança 5 s na prévia"],
+  [["Shift", "←"], "Faixa anterior"],
+  [["Shift", "→"], "Próxima faixa"],
+  [["Esc"], "Mostra o editor de novo (no modo apresentar)"],
+];
+
+/** Atalhos num diálogo no mesmo estilo do de compartilhar, aberto pelo ícone de teclado do painel. */
+function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (open && !el.open) {
+      if (typeof el.showModal === "function") el.showModal();
+      else el.setAttribute("open", "");
+    } else if (!open && el.open) {
+      if (typeof el.close === "function") el.close();
+      else el.removeAttribute("open");
+    }
+  }, [open]);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onClick = (e: MouseEvent) => e.target === el && onClose();
+    el.addEventListener("click", onClick);
+    return () => el.removeEventListener("click", onClick);
+  }, [onClose]);
   return (
-    <div className="vol">
-      <button type="button" onClick={player.toggleMute} aria-label={muted ? "Ativar som" : "Silenciar"} aria-pressed={muted}>
-        {muted ? <Icon.mute /> : <Icon.volume />}
-      </button>
-      <label className="sr" htmlFor="volume">
-        Volume
-      </label>
-      <input id="volume" type="range" min={0} max={100} value={Math.round((player.muted ? 0 : player.volume) * 100)} onChange={(e) => player.setVolume(Number(e.target.value) / 100)} />
-    </div>
+    <dialog className="share keys-dlg" ref={ref} aria-labelledby="keys-title" onClose={onClose}>
+      <div className="share-side keys-in">
+        <div className="share-top">
+          <h2 id="keys-title">Atalhos do player</h2>
+          <button type="button" className="icon" aria-label="Fechar" onClick={onClose}>
+            <Icon.x />
+          </button>
+        </div>
+        <p>Valem com a capa aberta, fora de campos de texto.</p>
+        <dl className="keys-list">
+          {SHORTCUTS.map(([keys, what]) => (
+            <div key={what}>
+              <dt>
+                {keys.map((k) => (
+                  <kbd key={k}>{k}</kbd>
+                ))}
+              </dt>
+              <dd>{what}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </dialog>
   );
 }
 
@@ -78,6 +118,8 @@ export function Studio({
   initialTab?: string;
 }) {
   const [present, setPresent] = useState(false);
+  const [keysOpen, setKeysOpen] = useState(false);
+  const closeKeys = useCallback(() => setKeysOpen(false), []);
   const [tab, setTab] = useState(initialTab ?? tabs[0]?.id ?? "");
   const player = usePlayer();
   const { stop } = player;
@@ -108,6 +150,9 @@ export function Studio({
               <i aria-hidden="true" />
               Coverlist
             </a>
+            <button type="button" className="icon keys-btn" aria-label="Atalhos do teclado" title="Atalhos do teclado" onClick={() => setKeysOpen(true)}>
+              <Icon.keyboard />
+            </button>
             <button type="button" className="icon present-btn" aria-label="Ocultar editor" title="Ocultar editor" onClick={() => setPresent(true)}>
               <Icon.panel />
             </button>
@@ -135,12 +180,6 @@ export function Studio({
           <Icon.panel />
           Mostrar editor
         </button>
-        <div className="bar">
-          <p className="keys">
-            <kbd>Espaço</kbd> toca ou pausa · <kbd>←</kbd> <kbd>→</kbd> 5 s · <kbd>Shift</kbd> + <kbd>←</kbd> <kbd>→</kbd> troca a faixa
-          </p>
-          <Volume />
-        </div>
         {player.queueKey === queueKey && player.status === "unavailable" && player.message && (
           <p className="sr" role="status">
             {player.message}
@@ -148,6 +187,7 @@ export function Studio({
         )}
         <Cover meta={meta} tracks={tracks} queueKey={queueKey} />
       </main>
+      <ShortcutsDialog open={keysOpen} onClose={closeKeys} />
     </div>
   );
 }

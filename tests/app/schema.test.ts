@@ -41,6 +41,13 @@ describe("validação", () => {
     expect(validateTrack(track(3, { preview: { kind: "url", url: "http://audio-ssl.itunes.apple.com/a.m4a" } }))?.preview).toBeNull();
   });
 
+  it("aceita prévia do iTunes a resolver ao tocar só com id e país coerentes", () => {
+    const it = { ...track(1), id: "it:123", source: "itunes" as const };
+    expect(validateTrack({ ...it, preview: { kind: "itunes", trackId: "123", country: "br" } })?.preview).toEqual({ kind: "itunes", trackId: "123", country: "br" });
+    expect(validateTrack({ ...it, preview: { kind: "itunes", trackId: "999", country: "br" } })?.preview).toBeNull();
+    expect(validateTrack({ ...it, preview: { kind: "itunes", trackId: "123", country: "BRA" } })?.preview).toBeNull();
+  });
+
   it("recusa prévia do Deezer que não corresponde ao id da faixa", () => {
     expect(validateTrack(track(1, { preview: { kind: "deezer", trackId: "999" } }))?.preview).toBeNull();
   });

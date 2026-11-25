@@ -61,6 +61,12 @@ export const Icon = {
       <path d="m11 6 4 4M15 6l-4 4" strokeLinecap="round" />
     </svg>
   ),
+  keyboard: () => (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" {...common}>
+      <rect x="1.5" y="3.5" width="13" height="9" rx="2" />
+      <path d="M4 6.5h.01M6.5 6.5h.01M9 6.5h.01M11.5 6.5h.01M4.5 9.5h7" />
+    </svg>
+  ),
   sun: () => (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" {...common}>
       <circle cx="8" cy="8" r="3" />

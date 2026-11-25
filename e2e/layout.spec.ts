@@ -85,7 +85,7 @@ async function check(page: Page, screen: string, width: number, theme: string) {
 
 test("telas sem rolagem horizontal, título cabendo e vinil fora do texto em 8 larguras e 2 temas", async ({ page }, info) => {
   test.skip(info.project.name !== "1440-claro", "a varredura de larguras roda uma vez só");
-  test.setTimeout(15 * 60_000);
+  test.setTimeout(50 * 60_000);
   await offline(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
 

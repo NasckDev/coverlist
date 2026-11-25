@@ -16,8 +16,9 @@ export interface Artwork {
  * Prévia de 30 s.
  * - `url`: endereço estável (iTunes), pode ser guardado.
  * - `deezer`: a URL do Deezer é assinada e expira; só o id é guardado e a URL é resolvida na hora de tocar (op=track).
+ * - `itunes`: o lookup em lote da parada falhou para esta faixa; a prévia é buscada na hora de tocar (op=lookup).
  */
-export type Preview = { kind: "url"; url: string } | { kind: "deezer"; trackId: string } | null;
+export type Preview = { kind: "url"; url: string } | { kind: "deezer"; trackId: string } | { kind: "itunes"; trackId: string; country: string } | null;
 
 export interface Track {
   /** Id com prefixo da fonte: `dz:123` (Deezer) ou `it:456` (iTunes/Apple). */

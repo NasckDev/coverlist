@@ -9,6 +9,7 @@ import itunesSearch from "../fixtures/itunes-search-anitta.json";
 import spotifyOembed from "../fixtures/spotify-oembed.json";
 import { COLLECTIONS } from "../../server/collections";
 import { CACHE_POLICY, createHandler, OP_NAMES, type CoverlistResponse } from "../../server/handler";
+import { resetCaches } from "../../server/sources";
 import type { FetchLike } from "../../server/http";
 
 type Route = (url: string, signal?: AbortSignal) => { status: number; body: unknown } | Promise<{ status: number; body: unknown }>;
@@ -38,7 +39,7 @@ const fixtures: Route = (url) => {
 
 function call(query: string, options: { method?: string; route?: Route; timeoutMs?: number } = {}) {
   const { fetch, calls } = fakeFetch(options.route ?? fixtures);
-  const handler = createHandler({ fetch, timeoutMs: options.timeoutMs });
+  const handler = createHandler({ fetch, timeoutMs: options.timeoutMs, retryDelayMs: 0 });
   const headers = new Map<string, string>();
   let status = 0;
   let body: unknown;
@@ -60,11 +61,13 @@ function call(query: string, options: { method?: string; route?: Route; timeoutM
   }));
 }
 
+beforeEach(() => resetCaches());
+
 const cacheOf = (policy: { sMaxAge: number; swr: number }) => `public, s-maxage=${policy.sMaxAge}, stale-while-revalidate=${policy.swr}`;
 
 describe("lista fechada de operações e validação", () => {
   it("expõe só as operações previstas", () => {
-    expect(OP_NAMES).toEqual(["collections", "collection", "charts", "playlist", "search", "track", "spotify"]);
+    expect(OP_NAMES).toEqual(["collections", "collection", "charts", "playlist", "search", "track", "lookup", "spotify"]);
   });
 
   it.each([
@@ -130,15 +133,66 @@ describe("operações", () => {
     expect(result.headers.get("cache-control")).toBe(cacheOf(CACHE_POLICY.collectionPlaylist));
   });
 
-  it("parada sai mesmo se o lookup falhar (sem prévias)", async () => {
+  it("parada sai mesmo se o lookup falhar, com a prévia marcada para resolver ao tocar", async () => {
     const route: Route = (url) => (url.includes("/lookup") ? { status: 503, body: "" } : fixtures(url));
     const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const result = await call("op=charts&country=br&limit=25", { route });
     errors.mockRestore();
     expect(result.status).toBe(200);
-    const tracks = result.body.tracks as { preview: unknown }[];
+    const tracks = result.body.tracks as { id: string; preview: unknown }[];
     expect(tracks).toHaveLength(25);
-    expect(tracks.every((t) => t.preview === null)).toBe(true);
+    expect(tracks[0].preview).toEqual({ kind: "itunes", trackId: tracks[0].id.slice(3), country: "br" });
+    // 503 é temporário: cada lote foi tentado duas vezes (25 ids = 1 lote).
+    expect(result.calls.filter((u) => u.includes("/lookup"))).toHaveLength(2);
+  });
+
+  it("lookup em lotes de 25 ids", async () => {
+    const result = await call("op=collection&id=paradas-brasil");
+    const lookups = result.calls.filter((u) => u.includes("/lookup"));
+    expect(lookups).toHaveLength(1);
+    expect(lookups[0].split("id=")[1].split("&")[0].split(",")).toHaveLength(25);
+  });
+
+  it("repete uma vez em erro temporário da origem e serve a resposta", async () => {
+    let first = true;
+    const route: Route = (url) => {
+      if (url.startsWith("https://rss.") && first) {
+        first = false;
+        return { status: 503, body: "" };
+      }
+      return fixtures(url);
+    };
+    const result = await call("op=collection&id=paradas-brasil", { route });
+    expect(result.status).toBe(200);
+    expect(result.calls.filter((u) => u.startsWith("https://rss."))).toHaveLength(2);
+  });
+
+  it("não repete erro definitivo (404)", async () => {
+    const route: Route = (url) => (url.startsWith("https://rss.") ? { status: 404, body: "" } : fixtures(url));
+    const result = await call("op=collection&id=paradas-brasil", { route });
+    expect(result.status).toBe(404);
+    expect(result.calls.filter((u) => u.startsWith("https://rss."))).toHaveLength(1);
+  });
+
+  it("serve a última parada boa da memória quando o RSS cai (stale-if-error)", async () => {
+    expect((await call("op=charts&country=br&limit=25")).status).toBe(200);
+    // dentro de 15 min a parada vem da memória, sem chamar a origem
+    expect((await call("op=charts&country=br&limit=25", { route: () => ({ status: 503, body: "" }) })).calls).toHaveLength(0);
+    // depois disso a origem é consultada; se estiver fora, a última parada boa ainda serve
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + 20 * 60_000);
+    const offline = await call("op=charts&country=br&limit=25", { route: () => ({ status: 503, body: "" }) });
+    vi.useRealTimers();
+    expect(offline.status).toBe(200);
+    expect((offline.body.tracks as unknown[]).length).toBe(25);
+    expect(offline.calls.filter((u) => u.startsWith("https://rss."))).toHaveLength(2);
+  });
+
+  it("lookup resolve a prévia de uma faixa do iTunes na hora de tocar", async () => {
+    const result = await call("op=lookup&id=6815826572&country=br");
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({ id: "it:6815826572", url: expect.stringMatching(/^https:\/\/audio-ssl\.itunes\.apple\.com\//) });
+    expect(result.headers.get("cache-control")).toBe(cacheOf(CACHE_POLICY.lookup));
   });
 
   it("search une as duas fontes sem duplicatas e informa a situação de cada uma", async () => {

@@ -3,7 +3,7 @@
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
   padding-bottom:env(safe-area-inset-bottom,0px);
-  --chrome:#E4E5E8; --panel:#FAFAFB; --field:#FFFFFF; --text:#14151A; --muted:#656874; --line:#D5D7DD; --hover:#ECEDF0;
+  --chrome:#E4E5E8; --panel:#FAFAFB; --field:#FFFFFF; --text:#14151A; --muted:#565965; --line:#D5D7DD; --hover:#ECEDF0;
   --ui:"Hanken Grotesk","Helvetica Neue",Arial,sans-serif;
   --display:"Bricolage Grotesque","Arial Narrow","Helvetica Neue",Arial,sans-serif;
   --ease:cubic-bezier(.65,0,.2,1);

@@ -1,6 +1,6 @@
 import { APPLE_COUNTRIES, COLLECTIONS, COLLECTIONS_VERSION, findCollection, type AppleCountry, type CollectionDef } from "./collections.js";
 import { UpstreamError, type FetchLike, type UpstreamOptions } from "./http.js";
-import { appleChart, deezerPlaylist, deezerPreview, spotifyName, unifiedSearch } from "./sources.js";
+import { appleChart, deezerPlaylist, deezerPreview, itunesPreview, spotifyName, unifiedSearch } from "./sources.js";
 import type { ApiError, CollectionDetail, CollectionSummary } from "./types.js";
 
 /** Formato mínimo de request/response da Vercel (Node) e do middleware do Vite. */
@@ -36,6 +36,7 @@ export const CACHE_POLICY = {
   playlist: { sMaxAge: 900, swr: 3_600 },
   search: { sMaxAge: 1_800, swr: 3_600 },
   track: { sMaxAge: 300, swr: 60 },
+  lookup: { sMaxAge: 86_400, swr: 604_800 },
   spotify: { sMaxAge: 86_400, swr: 604_800 },
   notFound: { sMaxAge: 300, swr: 0 },
 } as const;
@@ -49,6 +50,7 @@ const OPS = {
   playlist: ["id"],
   search: ["q", "limit", "country"],
   track: ["id"],
+  lookup: ["id", "country"],
   spotify: ["id"],
 } as const satisfies Record<string, readonly string[]>;
 
@@ -163,6 +165,8 @@ async function run(op: Op, params: Map<string, string>, options: UpstreamOptions
     }
     case "track":
       return { body: await deezerPreview(numericId(params.get("id")), options), policy: CACHE_POLICY.track };
+    case "lookup":
+      return { body: await itunesPreview(numericId(params.get("id")), country(params.get("country"), "br"), options), policy: CACHE_POLICY.lookup };
     case "spotify": {
       const id = params.get("id") ?? "";
       if (!/^[A-Za-z0-9]{22}$/.test(id)) throw new BadRequest("invalid_id");
@@ -174,6 +178,7 @@ async function run(op: Op, params: Map<string, string>, options: UpstreamOptions
 export interface HandlerDeps {
   fetch?: FetchLike;
   timeoutMs?: number;
+  retryDelayMs?: number;
 }
 
 /**
@@ -181,7 +186,7 @@ export interface HandlerDeps {
  * Nenhuma URL vem do cliente (sem SSRF): o servidor monta todas a partir de ids validados.
  */
 export function createHandler(deps: HandlerDeps = {}) {
-  const options: UpstreamOptions = { fetch: deps.fetch, timeoutMs: deps.timeoutMs };
+  const options: UpstreamOptions = { fetch: deps.fetch, timeoutMs: deps.timeoutMs, retryDelayMs: deps.retryDelayMs };
   return async function handleCoverlist(request: CoverlistRequest, response: CoverlistResponse): Promise<void> {
     response.setHeader("X-Content-Type-Options", "nosniff");
     if (request.method !== "GET" && request.method !== "HEAD") {

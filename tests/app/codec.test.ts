@@ -68,6 +68,12 @@ describe("link compartilhável", () => {
     expect(artFromRef("dhttps://evil")).toBeNull();
   });
 
+  it("preserva a prévia do iTunes pendente (resolvida ao tocar)", async () => {
+    const pending = { ...base.tracks[25], preview: { kind: "itunes" as const, trackId: base.tracks[25].id.slice(3), country: "us" } };
+    const back = await decodeShare(await encodeShare({ ...base, tracks: [pending] }));
+    expect(back.tracks[0].preview).toEqual(pending.preview);
+  });
+
   it("usa o domínio público fora do localhost", () => {
     expect(shareUrl("abc", { hostname: "nasck.vercel.app", origin: "https://nasck.vercel.app", pathname: "/projetos/coverlist/" })).toBe(`${PUBLIC_APP_URL}#/s/abc`);
     expect(shareUrl("abc", { hostname: "localhost", origin: "http://localhost:5191", pathname: "/" })).toBe("http://localhost:5191/#/s/abc");

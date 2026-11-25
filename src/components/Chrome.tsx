@@ -1,7 +1,7 @@
 import { onlineManager } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import type { ThemeKey, Track } from "../../server/types";
-import { artBackground, themeVars } from "../lib/design";
+import { artBackground, hash, themeVars } from "../lib/design";
 import { href } from "../lib/router";
 import { Icon } from "./icons";
 import { useSegPill } from "./Seg";
@@ -104,12 +104,25 @@ export function ErrorState({ title, message, onRetry }: { title: string; message
 }
 
 /* ---------------------------------------------------------------- capa gerada */
-export function MiniCover({ title, theme, track, tag }: { title: string; theme: ThemeKey; track?: Track | null; tag?: string }) {
+/**
+ * Selo do vinil em mosaico de 4 capas distintas. O ponto de partida varia com o nome da coleção,
+ * para duas paradas com o mesmo nº 1 (ex.: Apple e Deezer no Brasil) não ganharem a mesma arte.
+ */
+export function mosaic(tracks: readonly Track[], seed: string): string {
+  const urls = [...new Set(tracks.map((t) => t.artwork?.small).filter((u): u is string => !!u))].slice(0, 12);
+  if (urls.length < 4) return artBackground(tracks.find((t) => t.artwork) ?? tracks[0] ?? null, "medium");
+  const start = hash(seed) % Math.max(1, urls.length - 3);
+  const pick = urls.slice(start, start + 4).map((u) => `url("${u.replace(/["\\]/g, "")}")`);
+  const pos = ["0 0", "100% 0", "0 100%", "100% 100%"];
+  return pick.map((u, i) => `${u} ${pos[i]} / 50% 50% no-repeat`).join(", ") + ", #555";
+}
+
+export function MiniCover({ title, theme, tracks = [], tag }: { title: string; theme: ThemeKey; tracks?: readonly Track[]; tag?: string }) {
   return (
     <div className="mini" style={themeVars(theme) as CSSProperties} aria-hidden="true">
       <h3>{title}</h3>
       <div className="mdisc">
-        <div className="mlabel" style={{ background: artBackground(track ?? null, "medium") }} />
+        <div className="mlabel" style={{ background: mosaic(tracks, title) }} />
       </div>
       {tag && <span className="mtag">{tag}</span>}
     </div>

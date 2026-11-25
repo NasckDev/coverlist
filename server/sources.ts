@@ -1,6 +1,6 @@
 import { dedupeTracks, interleave } from "./dedupe.js";
 import { isObject, str } from "./guards.js";
-import { fetchJson, UpstreamError, type UpstreamOptions } from "./http.js";
+import { fetchJson, TtlCache, UpstreamError, withRetry, type UpstreamOptions } from "./http.js";
 import {
   deezerError,
   deezerPreviewUrl,
@@ -9,6 +9,7 @@ import {
   normalizeDeezerPlaylist,
   normalizeDeezerTracks,
   normalizeItunesResults,
+  normalizeItunesTrack,
 } from "./normalize.js";
 import type { AppleCountry } from "./collections.js";
 import type { ChartResult, ImportedPlaylist, ResolvedPreview, SearchResult, SpotifyName, Track } from "./types.js";
@@ -16,8 +17,18 @@ import type { ChartResult, ImportedPlaylist, ResolvedPreview, SearchResult, Spot
 const DEEZER_API = "https://api.deezer.com";
 const ITUNES_API = "https://itunes.apple.com";
 const APPLE_RSS = "https://rss.marketingtools.apple.com/api/v2";
-/** O lookup do iTunes aceita vários ids separados por vírgula; lotes de 50 mantêm a URL curta. */
-const LOOKUP_BATCH = 50;
+/** O lookup do iTunes aceita vários ids separados por vírgula; lotes de 25 diminuem a chance de limite por IP. */
+export const LOOKUP_BATCH = 25;
+const MINUTE = 60_000;
+/** Paradas e lookups ficam 15 min em memória e servem até 24 h se a origem cair. */
+export const chartCache = new TtlCache<ChartResult>(15 * MINUTE, 24 * 60 * MINUTE);
+const lookupCache = new TtlCache<unknown[]>(60 * MINUTE, 24 * 60 * MINUTE, 256);
+
+/** Limpa os caches em memória (testes). */
+export function resetCaches() {
+  chartCache.clear();
+  lookupCache.clear();
+}
 
 /** Erro "no data" do Deezer (código 800) é recurso inexistente; os demais são falha da origem. */
 async function deezer(path: string, options: UpstreamOptions): Promise<unknown> {
@@ -44,37 +55,72 @@ export async function deezerPreview(trackId: string, options: UpstreamOptions): 
   return { id: `dz:${trackId}`, ...deezerPreviewUrl(raw) };
 }
 
-async function itunesLookup(ids: string[], country: string, options: UpstreamOptions): Promise<unknown[]> {
+/** Um lote do lookup, com repetição em falha temporária e cache; lote que falha não derruba os outros. */
+async function lookupBatch(batch: string[], country: string, options: UpstreamOptions): Promise<unknown[] | null> {
+  const key = `${country}:${batch.join(",")}`;
+  const cached = lookupCache.fresh(key);
+  if (cached) return cached;
+  try {
+    const raw = await withRetry(
+      () => fetchJson("itunes", `${ITUNES_API}/lookup?id=${batch.join(",")}&country=${country}&entity=song`, options),
+      options,
+    );
+    const results = isObject(raw) && Array.isArray(raw.results) ? raw.results : [];
+    lookupCache.set(key, results);
+    return results;
+  } catch (error) {
+    console.error(`[api/coverlist] itunes lookup failed: ${error instanceof Error ? error.message : "unknown"}`);
+    return lookupCache.stale(key) ?? null;
+  }
+}
+
+async function itunesLookup(ids: string[], country: string, options: UpstreamOptions): Promise<{ results: unknown[]; failedIds: Set<string> }> {
   const batches: string[][] = [];
   for (let i = 0; i < ids.length; i += LOOKUP_BATCH) batches.push(ids.slice(i, i + LOOKUP_BATCH));
-  const results = await Promise.all(
-    batches.map((batch) =>
-      fetchJson("itunes", `${ITUNES_API}/lookup?id=${batch.join(",")}&country=${country}&entity=song`, options),
-    ),
-  );
-  return results.flatMap((result) => (isObject(result) && Array.isArray(result.results) ? result.results : []));
+  const answers = await Promise.all(batches.map((batch) => lookupBatch(batch, country, options)));
+  const failedIds = new Set(batches.filter((_, i) => answers[i] === null).flat());
+  return { results: answers.flatMap((a) => a ?? []), failedIds };
+}
+
+/** Prévia de uma faixa do iTunes resolvida na hora de tocar (quando o lookup em lote da parada falhou). */
+export async function itunesPreview(trackId: string, country: AppleCountry, options: UpstreamOptions): Promise<ResolvedPreview> {
+  const results = await lookupBatch([trackId], country, options);
+  if (results === null) throw new UpstreamError("itunes", "http", "lookup unavailable");
+  const track = normalizeItunesTrack(results[0]);
+  return { id: `it:${trackId}`, url: track?.preview?.kind === "url" ? track.preview.url : null, expiresAt: null };
 }
 
 /**
  * Parada da Apple (RSS) enriquecida pelo lookup em lote do iTunes, que traz prévia, duração e álbum.
- * Se o lookup falhar, a parada sai assim mesmo, sem prévias: melhor um resultado parcial do que nenhum.
+ * Degradação: lote do lookup que falha deixa as faixas com prévia "a resolver" (op=lookup na hora de tocar);
+ * se o RSS falha, serve a última parada boa da memória. Só dá erro sem nada para mostrar.
  */
 export async function appleChart(country: AppleCountry, limit: number, options: UpstreamOptions): Promise<ChartResult> {
-  const raw = await fetchJson("apple-rss", `${APPLE_RSS}/${country}/music/most-played/${limit}/songs.json`, options);
+  const key = `${country}:${limit}`;
+  const cached = chartCache.fresh(key);
+  if (cached) return cached;
+  let raw: unknown;
+  try {
+    raw = await withRetry(() => fetchJson("apple-rss", `${APPLE_RSS}/${country}/music/most-played/${limit}/songs.json`, options), options);
+  } catch (error) {
+    const stale = chartCache.stale(key);
+    if (stale) return stale;
+    throw error;
+  }
   const chart = normalizeAppleRss(raw, limit);
   if (!chart) throw new UpstreamError("apple-rss", "invalid", "feed shape");
-  let tracks = chart.tracks;
-  try {
-    const lookup = await itunesLookup(
-      tracks.map((track) => track.id.slice(3)),
-      country,
-      options,
-    );
-    tracks = enrichWithLookup(tracks, { results: lookup });
-  } catch (error) {
-    console.error(`[api/coverlist] itunes lookup failed: ${error instanceof Error ? error.message : "unknown"}`);
-  }
-  return { country, title: chart.title, updatedAt: chart.updatedAt, tracks };
+  const { results, failedIds } = await itunesLookup(
+    chart.tracks.map((track) => track.id.slice(3)),
+    country,
+    options,
+  );
+  const tracks = enrichWithLookup(chart.tracks, { results }).map((track) =>
+    track.preview === null && failedIds.has(track.id.slice(3)) ? { ...track, preview: { kind: "itunes" as const, trackId: track.id.slice(3), country } } : track,
+  );
+  const result = { country, title: chart.title, updatedAt: chart.updatedAt, tracks };
+  // Parada com lote faltando não vai para o cache: na próxima chamada o lookup é tentado de novo.
+  if (!failedIds.size) chartCache.set(key, result);
+  return result;
 }
 
 /**
