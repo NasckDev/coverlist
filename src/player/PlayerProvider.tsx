@@ -155,6 +155,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     };
     const onPause = () => setState((s) => (s.status === "playing" ? { ...s, status: "paused" } : s));
     const onPlay = () => setState((s) => (s.status === "paused" ? { ...s, status: "playing" } : s));
+    // Buffer da rede: enquanto o áudio espera dados, a capa diz "carregando prévia" em vez de fingir que toca.
+    const onWaiting = () => setState((s) => (s.status === "playing" ? { ...s, status: "loading" } : s));
+    const onPlaying = () => setState((s) => (s.status === "loading" ? { ...s, status: "playing" } : s));
+    audio.addEventListener("waiting", onWaiting);
+    audio.addEventListener("playing", onPlaying);
     const onTime = () => {
       if (!("mediaSession" in navigator) || !navigator.mediaSession.setPositionState) return;
       if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
@@ -177,6 +182,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       audio.removeEventListener("error", onError);
       audio.removeEventListener("pause", onPause);
       audio.removeEventListener("play", onPlay);
+      audio.removeEventListener("waiting", onWaiting);
+      audio.removeEventListener("playing", onPlaying);
     };
   }, [audio, nextPlayable, patch, start]);
 

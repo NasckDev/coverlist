@@ -8,7 +8,7 @@ Publicado em `https://nasck.vercel.app/projetos/coverlist/` (o proxy é a Functi
 
 ```bash
 npm install
-npm run dev          # http://localhost:5191, com /api/coverlist chamando o mesmo handler da Function
+npm run dev          # http://localhost:5191 (o preview e o E2E usam a mesma porta), com /api/coverlist chamando o mesmo handler da Function
 npm run verify       # lint + typecheck (app e servidor) + testes unitários e de componente + build
 npm run e2e          # Playwright no build de produção, com as APIs interceptadas pelas fixtures
 npm run publish:portfolio   # build com base /projetos/coverlist/ e cópia para C:\ale\Myportfolio
@@ -50,6 +50,7 @@ Nenhuma URL vem do cliente: o servidor monta todas a partir de parâmetros valid
 | `playlist` | `id` numérico | Deezer `playlist/{id}` | `s-maxage=900, swr=3600` |
 | `search` | `q` (2–80 caracteres), `limit` (1–25), `country` | Deezer `search` + iTunes `search`, em paralelo | `s-maxage=1800, swr=3600` |
 | `track` | `id` numérico | Deezer `track/{id}` (prévia assinada) | `s-maxage=300, swr=60` |
+| `lookup` | `id` numérico, `country` | iTunes `lookup` de uma faixa (prévia que o lote da parada não trouxe) | `s-maxage=86400, swr=604800` |
 | `spotify` | `id` (22 caracteres) | oEmbed do Spotify (só o nome) | `s-maxage=86400, swr=604800` |
 
 404 (coleção inexistente, playlist que o Deezer responde com o erro 800) leva `s-maxage=300`; 400 e 502 levam `no-store`.
@@ -58,7 +59,7 @@ Nenhuma URL vem do cliente: o servidor monta todas a partir de parâmetros valid
 
 - **Tipo único `Track`**: id com prefixo da fonte (`dz:` ou `it:`), título, artista, álbum, duração, capa em três tamanhos, prévia, fonte, explícito e link. Os normalizadores aceitam só `https` em hosts conhecidos (`dzcdn.net`, `deezer.com`, `mzstatic.com`, `apple.com`) e descartam o resto.
 - **Prévia do Deezer não é guardada**: a URL vem assinada e expira em cerca de 15 minutos (`hdnea=exp=…`). O proxy devolve só `{ kind: "deezer", trackId }`; o player chama `op=track` na hora de tocar, e o app reaproveita a URL até um minuto antes do `exp` informado. A prévia do iTunes é estável e pode ser salva.
-- **Paradas da Apple + Lookup**: o RSS traz posição, capa e nome, mas não prévia nem duração. O proxy faz um lookup em lote (`lookup?id=a,b,c`, lotes de 50) e junta pelo id. Se o lookup falhar, a parada sai assim mesmo, sem prévias (resultado parcial em vez de erro).
+- **Paradas da Apple + Lookup**: o RSS traz posição, capa e nome, mas não prévia nem duração. O proxy faz um lookup em lote (`lookup?id=a,b,c`, lotes de 25) e junta pelo id. Falha temporária (timeout, rede, 429, 5xx) é repetida uma vez com espera; 4xx não. Paradas e lookups ficam 15 min/1 h num cache em memória da instância e, se a origem cair, a última resposta boa serve por até 24 h. Lote que falha não derruba a parada: as faixas dele saem com a prévia "a resolver" (`{ kind: "itunes", trackId, country }`) e o player busca essa faixa sozinha (`op=lookup`) na hora de tocar.
 - **Busca unificada**: Deezer e iTunes em paralelo, intercalados e deduplicados por título normalizado (sem acento, sem "feat.", sem "Remastered") + primeiro artista, com tolerância de 6 s na duração. A primeira ocorrência fica e herda o que faltava (capa, prévia) da duplicata. Se só uma fonte responde, a busca sai parcial e diz qual faltou.
 - **Erros "200" do Deezer**: o Deezer responde HTTP 200 com `{ error: { code } }`. Código 800 vira 404; quota (4) e os demais viram 502.
 - **Spotify e YouTube**: o Spotify só tem oEmbed público, então o app importa o nome e diz claramente que as faixas não vêm. O YouTube exige chave de API, então o link é reconhecido e recusado com explicação. Links curtos do app do Deezer (`deezer.page.link`) não são seguidos: seria preciso buscar uma URL arbitrária no servidor.
@@ -89,10 +90,10 @@ Configuração em `server/collections.ts` (versão `2026-11-25`). Ids do Deezer 
 ## No navegador
 
 - **TanStack Query**: cache por chave, retry só para falha de rede ou de origem (4xx não repete), estados de carregamento, erro e "sem conexão". Coleções vão para um cache persistido no IndexedDB (7 dias, invalidado pela versão da configuração), então Explorar e as coleções já vistas abrem offline com aviso.
-- **Playlists**: IndexedDB com `schemaVersion`. Toda leitura passa por validação campo a campo; dado corrompido é descartado e contado, versão mais nova não é sobrescrita. A migração v1 → v2 converte o formato do protótipo (`localStorage` `ladoa:v2`). Limites: 50 faixas por playlist e 100 playlists. Exportar e importar JSON passam pela mesma validação.
+- **Playlists**: IndexedDB com `schemaVersion`. Toda leitura passa por validação campo a campo; dado corrompido é descartado e contado, versão mais nova não é sobrescrita. A migração v1 → v2 converte o formato do protótipo (`localStorage` `ladoa:v2`). Limites: 100 faixas por playlist (o mesmo teto das coleções: "usar como base" copia a coleção inteira) e 100 playlists. O aviso de limite aparece uma vez, só quando a pessoa tenta passar dele. Exportar e importar JSON passam pela mesma validação.
 - **Link compartilhável**: o estado vai no próprio link (`#/s/…`), em JSON compacto, `deflate-raw` e base64url. Capas e prévias viajam como referências curtas (hash da capa do Deezer, caminho do CDN da Apple) e são remontadas só em hosts conhecidos, então um link adulterado não consegue apontar o app para outro servidor. Na leitura tudo é validado: versão, tamanho, tema, modelo e cada faixa.
 - **Imagem para compartilhar**: canvas 1080×1920 ou 1080×1080, portado do protótipo, com capas reais (os CDNs do Deezer e da Apple respondem `Access-Control-Allow-Origin: *`); capa que não carrega em 4 s vira a capa gerada.
-- **Player**: um `<audio>` só, fila da tela atual, anterior/próxima, avanço automático pulando faixas sem prévia, posição, volume, atalhos (espaço; ← → 5 s; Shift + ← → troca a faixa) e Media Session (controles na tela de bloqueio).
+- **Player**: um `<audio>` só, fila da tela atual, anterior/próxima, avanço automático pulando faixas sem prévia, posição (marcada como "Prévia": as fontes liberam 30 s; a lista mostra a duração da música inteira), volume e silenciar dentro da barra do player da capa, atalhos (espaço; ← → 5 s; Shift + ← → troca a faixa; lista no ícone de teclado do painel) e Media Session (controles na tela de bloqueio).
 - **Acessibilidade**: abas com setas, reordenar por arrastar (pointer events, funciona no toque) e pelo teclado (alça + ↑ ↓ Home End) com anúncio para leitor de tela, foco visível, alvos de 44 px no toque, `prefers-reduced-motion` respeitado (a abertura não roda).
 
 ## Testes
