@@ -11,7 +11,7 @@ import { href } from "../lib/router";
 import { usePlayer } from "../player/PlayerProvider";
 import { usePlaylists } from "../store/playlists";
 import { BY_MAX, DESC_MAX, MAX_TRACKS, NAME_MAX } from "../store/schema";
-import { LoadingStudio } from "./CollectionPage";
+import { durationLabel, LoadingStudio } from "./CollectionPage";
 
 export function PlaylistPage({ id }: { id: string }) {
   const store = usePlaylists();
@@ -39,6 +39,7 @@ export function PlaylistPage({ id }: { id: string }) {
 
   const queueKey = `p-${playlist.id}`;
   const count = playlist.tracks.length;
+  const duration = durationLabel(playlist.tracks);
 
   const onImported = (outcome: ImportOutcome) => {
     if (outcome.kind === "spotify") {
@@ -60,15 +61,27 @@ export function PlaylistPage({ id }: { id: string }) {
     <>
       <Studio
         panelLabel="Editor da playlist"
+        back={{ href: href.library(), label: "Minhas playlists" }}
         queueKey={queueKey}
         meta={playlist}
         tracks={playlist.tracks}
         header={
-          <nav className="crumbs" aria-label="Caminho">
-            <a href={href.library()}>Minhas playlists</a>
-            <span aria-hidden="true">/</span>
-            <span>{playlist.name.trim() || "Sem nome"}</span>
-          </nav>
+          <div className="col-head">
+            <p className="col-title">{playlist.name.trim() || "Sem nome"}</p>
+            <ul className="stats" aria-label="Resumo da playlist">
+              <li>
+                <b>{count}</b> {count === 1 ? "faixa" : "faixas"}
+              </li>
+              {duration && (
+                <li>
+                  <b>{duration}</b>
+                </li>
+              )}
+              <li>
+                <b>{playlist.tracks.filter((t) => t.preview).length}</b> com prévia
+              </li>
+            </ul>
+          </div>
         }
         tabs={[
           {
@@ -88,7 +101,7 @@ export function PlaylistPage({ id }: { id: string }) {
                   }}
                 />
                 <details className="import">
-                  <summary>Importar de um link do Deezer ou Spotify</summary>
+                  <summary>Importar playlist (link ou nome)</summary>
                   <ImportLink id={`link-${playlist.id}`} onImported={onImported} />
                 </details>
                 <EditableTrackList

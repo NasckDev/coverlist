@@ -3,16 +3,20 @@ import appleRss from "../fixtures/apple-rss-br.json";
 import deezerChart from "../fixtures/deezer-chart-tracks.json";
 import deezerPlaylist from "../fixtures/deezer-playlist-top-worldwide.json";
 import deezerSearch from "../fixtures/deezer-search-anitta.json";
+import deezerPlaylistSearch from "../fixtures/deezer-search-playlist-rock.json";
+import deezerShare from "../fixtures/deezer-share-redirects.json";
 import deezerTrack from "../fixtures/deezer-track.json";
 import itunesLookup from "../fixtures/itunes-lookup-br.json";
 import itunesSearch from "../fixtures/itunes-search-anitta.json";
 import {
   appleArtwork,
   deezerError,
+  deezerLinkTarget,
   deezerPreviewUrl,
   enrichWithLookup,
   normalizeAppleRss,
   normalizeDeezerPlaylist,
+  normalizeDeezerPlaylistHits,
   normalizeDeezerTrack,
   normalizeDeezerTracks,
   normalizeItunesResults,
@@ -112,5 +116,44 @@ describe("iTunes e Apple RSS", () => {
     expect(art?.medium).toMatch(/\/300x300bb\.jpg$/);
     expect(art?.large).toMatch(/\/600x600bb\.jpg$/);
     expect(appleArtwork("https://example.com/a/100x100bb.jpg")).toBeNull();
+  });
+});
+
+describe("Deezer: links de compartilhar e busca de playlists", () => {
+  const recorded = deezerShare.responses as Record<string, { location: string }>;
+
+  it("lê o destino real do redirect de um link de playlist", () => {
+    expect(deezerLinkTarget(recorded["30mAVu3pLtvGQuthQUK9b"].location)).toEqual({ kind: "playlist", id: "6524256744" });
+  });
+
+  it("reconhece álbum e código vencido", () => {
+    expect(deezerLinkTarget(recorded["33YUXFGT262a7innvHZZT"].location)).toEqual({ kind: "album", id: "1042626192" });
+    expect(deezerLinkTarget(recorded["31Wq4dKe1ARDAb5TeNIGh"].location)).toBeNull();
+  });
+
+  it.each([
+    ["https://www.deezer.com/br/playlist/123?utm=x", { kind: "playlist", id: "123" }],
+    ["https://www.deezer.com/pt-br/track/9", { kind: "track", id: "9" }],
+    ["https://www.deezer.com/episode/817479552", { kind: "other", id: null }],
+    ["https://link.deezer.com/?dest=https%3A%2F%2Fwww.deezer.com%2Fartist%2F5", { kind: "artist", id: "5" }],
+  ])("%s", (location, expected) => {
+    expect(deezerLinkTarget(location)).toEqual(expected);
+  });
+
+  it.each(["https://evil.example/playlist/1", "http://www.deezer.com/playlist/1", "https://link.deezer.com/?dest=https%3A%2F%2Fdeezer.com.evil.example%2Fplaylist%2F1", "https://link.deezer.com/s/abc", "::"])(
+    "recusa destino fora do deezer.com: %s",
+    (location) => {
+      expect(deezerLinkTarget(location)).toBeNull();
+    },
+  );
+
+  it("busca de playlists mantém só públicas e capas do CDN do Deezer", () => {
+    const hits = normalizeDeezerPlaylistHits(deezerPlaylistSearch, 10);
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits.every((h) => /^\d+$/.test(h.id) && h.total >= 0)).toBe(true);
+    const tampered = { data: [{ ...deezerPlaylistSearch.data[0], public: false }, { ...deezerPlaylistSearch.data[1], picture_medium: "https://evil.example/x.jpg", picture_small: null, picture_big: null }] };
+    const safe = normalizeDeezerPlaylistHits(tampered, 10);
+    expect(safe).toHaveLength(1);
+    expect(safe[0].artwork).toBeNull();
   });
 });

@@ -104,6 +104,10 @@ test("telas sem rolagem horizontal, título cabendo e vinil fora do texto em 8 l
       await expect(page.getByRole("link", { name: /^Top Mundo\. 100 faixas/ })).toBeVisible();
       await check(page, "explorar", width, theme);
 
+      await page.goto("./#/g/decadas/1980");
+      await expect(page.getByRole("link", { name: "Anos 80", exact: true })).toHaveAttribute("aria-current", "page");
+      await check(page, "explorar-decadas", width, theme);
+
       await page.goto("./#/p");
       await expect(page.getByRole("heading", { name: "Minhas playlists" })).toBeVisible();
       await check(page, "minhas-playlists", width, theme);

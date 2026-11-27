@@ -98,8 +98,24 @@ function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () => void
   );
 }
 
+export interface BackTarget {
+  href: string;
+  label: string;
+}
+
+/** Voltar sempre à vista: no painel (desktop) e numa barra fixa no topo (celular, onde a capa vem primeiro). */
+function BackLink({ back, className }: { back: BackTarget; className: string }) {
+  return (
+    <a className={`back-btn ${className}`} href={back.href} aria-label={`Voltar para ${back.label}`}>
+      <Icon.back />
+      <span>{back.label}</span>
+    </a>
+  );
+}
+
 export function Studio({
   panelLabel,
+  back,
   header,
   tabs,
   foot,
@@ -109,6 +125,7 @@ export function Studio({
   initialTab,
 }: {
   panelLabel: string;
+  back?: BackTarget;
   header: ReactNode;
   tabs: StudioTab[];
   foot: ReactNode;
@@ -143,6 +160,14 @@ export function Studio({
 
   return (
     <div className={`app${present ? " present" : ""}`}>
+      {back && (
+        <nav className="mbar" aria-label="Voltar">
+          <BackLink back={back} className="mbar-back" />
+          <a href="#/" className="brand-link mbar-brand" aria-label="Coverlist: ir para Explorar">
+            <i aria-hidden="true" />
+          </a>
+        </nav>
+      )}
       <aside className="panel" aria-label={panelLabel}>
         <div className="panel-in" inert={present}>
           <p className="brand">
@@ -157,6 +182,7 @@ export function Studio({
               <Icon.panel />
             </button>
           </p>
+          {back && <BackLink back={back} className="panel-back" />}
           {header}
           {tabs.length > 1 && <Tabs tabs={tabs} active={tab} onChange={setTab} idPrefix={queueKey.replace(/[^a-z0-9]/gi, "")} />}
           {tabs.map((t) => (
@@ -176,10 +202,13 @@ export function Studio({
       </aside>
 
       <main className="stage" id="conteudo">
-        <button type="button" className="ghost float" onClick={() => setPresent(false)}>
-          <Icon.panel />
-          Mostrar editor
-        </button>
+        <div className="float">
+          {back && <BackLink back={back} className="ghost" />}
+          <button type="button" className="ghost" onClick={() => setPresent(false)}>
+            <Icon.panel />
+            Mostrar editor
+          </button>
+        </div>
         {player.queueKey === queueKey && player.status === "unavailable" && player.message && (
           <p className="sr" role="status">
             {player.message}

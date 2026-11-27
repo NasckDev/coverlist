@@ -142,7 +142,7 @@ test.describe("Coverlist", () => {
     await expect(page.getByText("1 playlist importada.")).toBeVisible();
     await expect(page.getByRole("link", { name: /^Abrir Nova playlist/ })).toHaveCount(2);
 
-    await page.getByRole("textbox", { name: "Link da playlist" }).fill("https://www.deezer.com/br/playlist/3155776842");
+    await page.getByRole("textbox", { name: "Link ou nome da playlist" }).fill("https://www.deezer.com/br/playlist/3155776842");
     await page.getByRole("button", { name: "Importar", exact: true }).click();
     await expect(page).toHaveURL(/#\/p\/p[a-z0-9]+$/);
     await expect(page.getByText("100 faixas importadas do Deezer.")).toBeVisible();
@@ -159,6 +159,52 @@ test.describe("Coverlist", () => {
 
     await page.goto("./#/s/link-adulterado");
     await expect(page.getByRole("alert")).toContainText("Link inválido");
+  });
+
+  test("décadas → play no cartão → coleção já tocando → voltar ao mesmo filtro", async ({ page }) => {
+    await offline(page);
+    await page.goto("./");
+    await page.getByRole("link", { name: "Décadas", exact: true }).click();
+    await expect(page).toHaveURL(/#\/g\/decadas$/);
+    await page.getByRole("link", { name: "Anos 80", exact: true }).click();
+    await expect(page).toHaveURL(/#\/g\/decadas\/1980$/);
+    await expectNoSeriousA11yIssues(page);
+
+    await page.getByRole("button", { name: "Ouvir as prévias de Anos 80", exact: true }).click();
+    await expect(page).toHaveURL(/#\/c\/anos-80$/);
+    // Um clique: a capa abre tocando a primeira faixa com prévia.
+    await expect(page.locator(".inner")).toHaveClass(/playing/);
+    await expect(page.getByRole("button", { name: "Pausar prévia" })).toBeVisible();
+    await expect(page.getByRole("list", { name: "Resumo da coleção" })).toContainText("100 faixas");
+    await expectNoSeriousA11yIssues(page);
+
+    // O voltar aparece sem rolar, no topo (celular) ou no painel (desktop), e volta ao mesmo filtro.
+    const back = page.getByRole("link", { name: "Voltar para Décadas · Anos 80" });
+    await expect(back).toBeVisible();
+    await expect(back).toBeInViewport();
+    await back.click();
+    await expect(page).toHaveURL(/#\/g\/decadas\/1980$/);
+  });
+
+  test("importa pelo link de compartilhar do app do Deezer e procura pelo nome", async ({ page }) => {
+    await offline(page);
+    await page.goto("./#/p");
+    const field = page.getByRole("textbox", { name: "Link ou nome da playlist" });
+    await field.fill("https://link.deezer.com/s/31Wq4dKe1ARDAb5TeNIGh");
+    await page.getByRole("button", { name: "Importar", exact: true }).click();
+    await expect(page.getByText(/pode ter vencido ou estar incompleto/)).toBeVisible();
+
+    await field.fill("rock");
+    await page.getByRole("button", { name: "Buscar", exact: true }).click();
+    const results = page.getByRole("list", { name: "Playlists do Deezer encontradas" });
+    await expect(results.getByRole("button").first()).toBeVisible();
+    await expectNoSeriousA11yIssues(page);
+
+    await field.fill("Ouça no Deezer: https://link.deezer.com/s/30mAVu3pLtvGQuthQUK9b");
+    await page.getByRole("button", { name: "Importar", exact: true }).click();
+    await expect(page).toHaveURL(/#\/p\/p[a-z0-9]+$/);
+    await expect(page.getByText("100 faixas importadas do Deezer.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Voltar para Minhas playlists" })).toBeInViewport();
   });
 
   test("servidor sem a API (site estático) mostra erro com tentar de novo", async ({ page }) => {

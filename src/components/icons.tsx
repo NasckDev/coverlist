@@ -24,6 +24,32 @@ export const Icon = {
       <path d="m4 10 4-4 4 4" />
     </svg>
   ),
+  back: () => (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...common}>
+      <path d="M13 8H3.5M7.5 3.5 3 8l4.5 4.5" />
+    </svg>
+  ),
+  play: () => (
+    <svg viewBox="0 0 16 16" fill="currentColor" {...common}>
+      <path d="M4.5 2.6v10.8c0 .6.65.97 1.17.66l8.6-5.4a.77.77 0 0 0 0-1.32l-8.6-5.4a.77.77 0 0 0-1.17.66Z" />
+    </svg>
+  ),
+  pause: () => (
+    <svg viewBox="0 0 16 16" fill="currentColor" {...common}>
+      <rect x="3.5" y="2.5" width="3" height="11" rx="1" />
+      <rect x="9.5" y="2.5" width="3" height="11" rx="1" />
+    </svg>
+  ),
+  shuffle: () => (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...common}>
+      <path d="M2 4.5h2.3c1.4 0 2.3.7 3 2l1.4 3c.7 1.3 1.6 2 3 2H14M2 11.5h2.3c.9 0 1.6-.3 2.2-.9M9.5 5.4c.6-.6 1.3-.9 2.2-.9H14M12 2.5l2 2-2 2M12 9.5l2 2-2 2" />
+    </svg>
+  ),
+  external: () => (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...common}>
+      <path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M12 9.5v3c0 .55-.45 1-1 1H3.5c-.55 0-1-.45-1-1V5c0-.55.45-1 1-1h3" />
+    </svg>
+  ),
   down: () => (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...common}>
       <path d="m4 6 4 4 4-4" />

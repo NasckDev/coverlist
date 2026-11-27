@@ -33,3 +33,14 @@ await save("deezer-search-playlist-rock.json", "https://api.deezer.com/search/pl
 await save("deezer-track.json", "https://api.deezer.com/track/3602074142");
 await save("deezer-error-nodata.json", "https://api.deezer.com/playlist/1");
 await save("spotify-oembed.json", `https://open.spotify.com/oembed?url=${encodeURIComponent("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")}`);
+
+// Links de compartilhar do app do Deezer: só o redirect importa (playlist, álbum e um código vencido).
+// O Deezer limita chamadas seguidas a link.deezer.com, então há uma pausa entre elas.
+const share = { recordedAt: new Date().toISOString(), source: "GET https://link.deezer.com/s/{code} com redirect manual", responses: {} as Record<string, unknown> };
+for (const code of ["30mAVu3pLtvGQuthQUK9b", "33YUXFGT262a7innvHZZT", "31Wq4dKe1ARDAb5TeNIGh"]) {
+  const res = await fetch(`https://link.deezer.com/s/${code}`, { redirect: "manual" });
+  share.responses[code] = { status: res.status, location: res.headers.get("location") };
+  await new Promise((resolve) => setTimeout(resolve, 1200));
+}
+writeFileSync(join(DIR, "deezer-share-redirects.json"), `${JSON.stringify(share, null, 2)}\n`);
+console.log("ok deezer-share-redirects.json");

@@ -1,0 +1,18 @@
+{
+  "recordedAt": "2026-11-27T17:55:29.463Z",
+  "source": "GET https://link.deezer.com/s/{code} com redirect manual",
+  "responses": {
+    "30mAVu3pLtvGQuthQUK9b": {
+      "status": 301,
+      "location": "https://link.deezer.com/?awf=https%3A%2F%2Fwww.deezer.com%2Fplaylist%2F6524256744%3Fhost%3D3093798724%26utm_campaign%3Dclipboard-generic%26utm_source%3Duser_sharing%26utm_content%3Dplaylist-6524256744%26deferredFl%3D1&dest=https%3A%2F%2Fwww.deezer.com%2Fplaylist%2F6524256744%3Fhost%3D3093798724%26utm_campaign%3Dclipboard-generic%26utm_source%3Duser_sharing%26utm_content%3Dplaylist-6524256744%26deferredFl%3D1&gwf=https%3A%2F%2Fwww.deezer.com%2Fplaylist%2F6524256744%3Fhost%3D3093798724%26utm_campaign%3Dclipboard-generic%26utm_source%3Duser_sharing%26utm_content%3Dplaylist-6524256744%26deferredFl%3D1&iwf=https%3A%2F%2Fwww.deezer.com%2Fplaylist%2F6524256744%3Fhost%3D3093798724%26utm_campaign%3Dclipboard-generic%26utm_source%3Duser_sharing%26utm_content%3Dplaylist-6524256744%26deferredFl%3D1"
+    },
+    "33YUXFGT262a7innvHZZT": {
+      "status": 301,
+      "location": "https://link.deezer.com/?awf=https%3A%2F%2Fwww.deezer.com%2Falbum%2F1042626192%3Fhost%3D0%26utm_campaign%3Dclipboard-generic%26utm_source%3Duser_sharing%26utm_content%3Dalbum-1042626192%26deferredFl%3D1&dest=https%3A%2F%2Fwww.deezer.com%2Falbum%2F1042626192%3Fhost%3D0%26utm_campaign%3Dclipboard-generic%26utm_source%3Duser_sharing%26utm_content%3Dalbum-1042626192%26deferredFl%3D1&gwf=https%3A%2F%2Fwww.deezer.com%2Falbum%2F1042626192%3Fhost%3D0%26utm_campaign%3Dclipboard-generic%26utm_source%3Duser_sharing%26utm_content%3Dalbum-1042626192%26deferredFl%3D1&iwf=https%3A%2F%2Fwww.deezer.com%2Falbum%2F1042626192%3Fhost%3D0%26utm_campaign%3Dclipboard-generic%26utm_source%3Duser_sharing%26utm_content%3Dalbum-1042626192%26deferredFl%3D1"
+    },
+    "31Wq4dKe1ARDAb5TeNIGh": {
+      "status": 302,
+      "location": "https://www.deezer.com/deezer-links-404"
+    }
+  }
+}

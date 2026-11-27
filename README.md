@@ -36,7 +36,7 @@ tests/                   unitários e de componente (Vitest + Testing Library + 
 e2e/                     Playwright + axe
 ```
 
-Roteamento por hash (`#/`, `#/c/<coleção>`, `#/p`, `#/p/<playlist>`, `#/s/<link>`), para funcionar em subpasta estática e ao recarregar.
+Roteamento por hash (`#/`, `#/g/<grupo>[/<década ou recorte>]`, `#/c/<coleção>`, `#/p`, `#/p/<playlist>`, `#/s/<link>`), para funcionar em subpasta estática e ao recarregar. Os filtros de Explorar (`#/g/decadas/1980`, `#/g/generos/brasil`) têm endereço próprio: o voltar da coleção e o do navegador caem no mesmo filtro.
 
 ## O proxy (`/api/coverlist?op=…`)
 
@@ -52,6 +52,8 @@ Nenhuma URL vem do cliente: o servidor monta todas a partir de parâmetros valid
 | `track` | `id` numérico | Deezer `track/{id}` (prévia assinada) | `s-maxage=300, swr=60` |
 | `lookup` | `id` numérico, `country` | iTunes `lookup` de uma faixa (prévia que o lote da parada não trouxe) | `s-maxage=86400, swr=604800` |
 | `spotify` | `id` (22 caracteres) | oEmbed do Spotify (só o nome) | `s-maxage=86400, swr=604800` |
+| `playlists` | `q` (2–80 caracteres), `limit` (1–25) | Deezer `search/playlist` (só playlists públicas) | `s-maxage=1800, swr=3600` |
+| `shortlink` | `code` (4–40 letras e números) | `link.deezer.com/s/{code}`: lê só o `Location` do redirect, sem segui-lo | `s-maxage=86400, swr=604800` |
 
 404 (coleção inexistente, playlist que o Deezer responde com o erro 800) leva `s-maxage=300`; 400 e 502 levam `no-store`.
 
@@ -62,33 +64,19 @@ Nenhuma URL vem do cliente: o servidor monta todas a partir de parâmetros valid
 - **Paradas da Apple + Lookup**: o RSS traz posição, capa e nome, mas não prévia nem duração. O proxy faz um lookup em lote (`lookup?id=a,b,c`, lotes de 25) e junta pelo id. Falha temporária (timeout, rede, 429, 5xx) é repetida uma vez com espera; 4xx não. Paradas e lookups ficam 15 min/1 h num cache em memória da instância e, se a origem cair, a última resposta boa serve por até 24 h. Lote que falha não derruba a parada: as faixas dele saem com a prévia "a resolver" (`{ kind: "itunes", trackId, country }`) e o player busca essa faixa sozinha (`op=lookup`) na hora de tocar.
 - **Busca unificada**: Deezer e iTunes em paralelo, intercalados e deduplicados por título normalizado (sem acento, sem "feat.", sem "Remastered") + primeiro artista, com tolerância de 6 s na duração. A primeira ocorrência fica e herda o que faltava (capa, prévia) da duplicata. Se só uma fonte responde, a busca sai parcial e diz qual faltou.
 - **Erros "200" do Deezer**: o Deezer responde HTTP 200 com `{ error: { code } }`. Código 800 vira 404; quota (4) e os demais viram 502.
-- **Spotify e YouTube**: o Spotify só tem oEmbed público, então o app importa o nome e diz claramente que as faixas não vêm. O YouTube exige chave de API, então o link é reconhecido e recusado com explicação. Links curtos do app do Deezer (`deezer.page.link`) não são seguidos: seria preciso buscar uma URL arbitrária no servidor.
+- **Link de compartilhar do app do Deezer**: o "Compartilhar → Copiar link" do app gera `https://link.deezer.com/s/<código>`, sem o id da playlist (era isso que a importação recusava com erro). O servidor monta a URL só a partir do código validado, pede com `redirect: "manual"` e lê o `Location`: um código válido responde `301` para `link.deezer.com/?…&dest=https://www.deezer.com/<tipo>/<id>`, um vencido responde `302` para `www.deezer.com/deezer-links-404` (conferido em 27/11/2026, respostas gravadas em `tests/fixtures/deezer-share-redirects.json`). Só destinos `https` em `deezer.com` são aceitos; o app então importa a playlist ou explica que o link é de álbum, faixa ou artista. O texto copiado pode vir com frase em volta: o app extrai o endereço.
+- **Importar pelo nome**: sem link (ou com link de Apple Music, YouTube ou Spotify), a pessoa digita o nome e escolhe entre playlists públicas do Deezer (`search/playlist`). Playlist privada e inexistente respondem igual no Deezer (erro 800), então a mensagem cobre as duas e diz como tornar a playlist pública.
+- **Spotify, Apple Music e YouTube**: o Spotify só tem oEmbed público, então vem o nome; o app sugere playlists do Deezer com esse nome ou cria só com o nome. Apple Music (playlist) exige chave de desenvolvedor e YouTube exige chave do Google: os links são reconhecidos e explicados. Links antigos `deezer.page.link` não são seguidos: seria buscar uma URL arbitrária no servidor.
 - **`chart/0` do Deezer não é usado nas coleções**: ele responde conforme o país de quem chama (no servidor da Vercel seria outro país). As paradas por país vêm da Apple, e o Top Mundo vem da playlist "Top Worldwide" da conta Deezer Charts.
 
 ### Coleções curadas
 
-Configuração em `server/collections.ts` (versão `2026-11-25`). Ids do Deezer conferidos na API pública em 25/11/2026: todos pertencem a contas editoriais do próprio Deezer.
-
-| Coleção | Fonte |
-|---|---|
-| Paradas do Brasil | Apple RSS `br` most-played (50) |
-| Top Mundo | Deezer 3155776842 "Top Worldwide" (Deezer Charts) |
-| Paradas dos EUA | Apple RSS `us` most-played (50) |
-| Top Brasil no Deezer | Deezer 1111141961 "Top Brasil" (Deezer Charts) |
-| Anos 80 | Deezer 867825522 "80s Hits" (Laeti - Deezer Pop Editor) |
-| Anos 90 | Deezer 878989033 "90s Hits" (Laeti - Deezer Pop Editor) |
-| Anos 2000 | Deezer 248297032 "00s Hits" (Laeti - Deezer Pop Editor) |
-| Anos 80 no Brasil | Deezer 309650853 (Editores Deezer Brasil) |
-| Sertanejo | Deezer 5207214368 "Top 50 Sertanejo" (Daniel - Editor Sênior Deezer Brasil) |
-| Pagode e samba | Deezer 1335664985 "Essenciais do Pagode" (Editores Deezer Brasil) |
-| Rock | Deezer 1306931615 "Rock Essentials" (Rod - Deezer Rock Editor) |
-| Pop | Deezer 1036183001 "Pop Essentials" (Laeti - Deezer Pop Editor) |
-| Hip-hop | Deezer 1996494362 "Rap Bangers" (Ayoub - Deezer Rap Editor) |
-| MPB | Deezer 556502217 "Clássicos da MPB" (Editores Deezer Brasil) |
-| Rap nacional | Deezer 11881565941 "Essenciais do Rap Brasileiro" (Editores Deezer Brasil) |
+Configuração em `server/collections.ts` (versão `2026-11-27`): 50 coleções (9 paradas, 14 décadas, 27 gêneros), com década (`era`) e recorte Brasil/Mundo (`scope`) para os filtros de Explorar. Ids do Deezer conferidos na API pública em 25/11/2026 (as 15 primeiras) e 27/11/2026 (as demais): todas públicas e de contas editoriais do próprio Deezer. A lista completa, com dono de cada playlist, está no próprio arquivo; `npm run verify:collections` refaz a conferência.
 
 ## No navegador
 
+- **Explorar**: Tudo, Paradas, Décadas e Gêneros na mesma pílula do topo; em Décadas, um filtro por década (anos 60 a 2020), em Gêneros, brasileiros ou internacionais. O play de cada capa abre a coleção já tocando a primeira faixa com prévia. Cada cartão só pede o detalhe da coleção quando chega perto da tela.
+- **Coleção e editor**: botão voltar sempre à vista (no painel, e numa barra fixa no topo no celular, onde a capa vem antes do painel), resumo com faixas, duração, prévias e artistas, "Ouvir prévias", "Faixa aleatória", link para a playlist no Deezer e "Mais em …" para trocar de década ou gênero sem voltar.
 - **TanStack Query**: cache por chave, retry só para falha de rede ou de origem (4xx não repete), estados de carregamento, erro e "sem conexão". Coleções vão para um cache persistido no IndexedDB (7 dias, invalidado pela versão da configuração), então Explorar e as coleções já vistas abrem offline com aviso.
 - **Playlists**: IndexedDB com `schemaVersion`. Toda leitura passa por validação campo a campo; dado corrompido é descartado e contado, versão mais nova não é sobrescrita. A migração v1 → v2 converte o formato do protótipo (`localStorage` `ladoa:v2`). Limites: 100 faixas por playlist (o mesmo teto das coleções: "usar como base" copia a coleção inteira) e 100 playlists. O aviso de limite aparece uma vez, só quando a pessoa tenta passar dele. Exportar e importar JSON passam pela mesma validação.
 - **Link compartilhável**: o estado vai no próprio link (`#/s/…`), em JSON compacto, `deflate-raw` e base64url. Capas e prévias viajam como referências curtas (hash da capa do Deezer, caminho do CDN da Apple) e são remontadas só em hosts conhecidos, então um link adulterado não consegue apontar o app para outro servidor. Na leitura tudo é validado: versão, tamanho, tema, modelo e cada faixa.

@@ -13,6 +13,8 @@ import { ExplorePage } from "../../src/pages/ExplorePage";
 import { LibraryPage } from "../../src/pages/LibraryPage";
 import { PlayerProvider } from "../../src/player/PlayerProvider";
 import { PlaylistsProvider } from "../../src/store/playlists";
+import { takeAutoplay } from "../../src/lib/router";
+import { COLLECTIONS } from "../../server/collections";
 import { callFixtureProxy } from "../support/fixture-proxy";
 
 const proxy = http.get("*/api/coverlist", async ({ request }) => {
@@ -61,6 +63,27 @@ describe("Explorar", () => {
     expect(await screen.findByRole("link", { name: /Top Mundo\. 100 faixas/ })).toBeInTheDocument();
   });
 
+  it("filtra por grupo e década com endereço próprio, e o resto fica a um clique", async () => {
+    const decades = COLLECTIONS.filter((c) => c.group === "decadas").length;
+    const { unmount } = wrap(<ExplorePage />);
+    const more = await screen.findByRole("link", { name: `Ver todas as ${decades} décadas` });
+    expect(more).toHaveAttribute("href", "#/g/decadas");
+    unmount();
+    wrap(<ExplorePage filter={{ group: "decadas", era: 1980 }} />);
+    expect(await screen.findByRole("link", { name: "Décadas" })).toHaveAttribute("aria-current", "page");
+    expect(await screen.findByRole("link", { name: "Anos 80" })).toHaveAttribute("aria-current", "page");
+    const cards = await screen.findAllByRole("button", { name: /^Ouvir as prévias de / });
+    expect(cards.map((b) => b.getAttribute("aria-label"))).toEqual(["Ouvir as prévias de Anos 80", "Ouvir as prévias de Anos 80 no Brasil"]);
+    expect(screen.queryByRole("heading", { name: "Paradas" })).not.toBeInTheDocument();
+  });
+
+  it("o play do cartão abre a coleção pedindo para tocar", async () => {
+    wrap(<ExplorePage filter={{ group: "generos", scope: "brasil" }} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Ouvir as prévias de Funk" }));
+    expect(window.location.hash).toBe("#/c/funk");
+    expect(takeAutoplay("funk")).toBe(true);
+  });
+
   it("mostra erro com tentar de novo quando o servidor falha", async () => {
     server.use(http.get("*/api/coverlist", () => HttpResponse.json({ error: "upstream_unavailable" }, { status: 502 })));
     wrap(<ExplorePage />);
@@ -84,6 +107,13 @@ describe("Coleção", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Top Mundo" })).toBeInTheDocument();
     expect(screen.getByRole("note")).toHaveTextContent("1 faixa sem prévia de 30 s na fonte");
     expect(screen.getAllByRole("button", { name: /\(sem prévia\)$/ })).toHaveLength(1);
+    expect(screen.getAllByRole("link", { name: /^Voltar para / })[0]).toHaveAttribute("href", expect.stringMatching(/^#\//));
+    const summary = within(screen.getByRole("list", { name: "Resumo da coleção" }));
+    expect(summary.getByText("100").parentElement).toHaveTextContent("100 faixas");
+    expect(summary.getByText("99").parentElement).toHaveTextContent("99 prévias");
+    expect(screen.getByRole("button", { name: "Ouvir prévias" })).toBeEnabled();
+    const related = within(await screen.findByRole("navigation", { name: "Mais em Paradas" }));
+    expect(related.getByRole("link", { name: "Paradas do Brasil" })).toHaveAttribute("href", "#/c/paradas-brasil");
     await userEvent.click(screen.getByRole("button", { name: "Usar como base" }));
     await waitFor(() => expect(window.location.hash).toMatch(/^#\/p\/p[a-z0-9]+$/));
     expect(await screen.findByText("Playlist criada com 100 faixas de “Top Mundo”.")).toBeInTheDocument();
@@ -160,11 +190,11 @@ describe("Minhas playlists", () => {
     expect(await screen.findByText("Esse arquivo não foi exportado pelo Coverlist.")).toBeInTheDocument();
   });
 
-  it("importa playlist do Deezer por link e diz que o Spotify só traz o nome", async () => {
+  it("importa playlist do Deezer por link e explica o YouTube", async () => {
     const user = userEvent.setup();
     wrap(<LibraryPage />);
     await screen.findByText("Nenhuma playlist ainda");
-    const field = screen.getByRole("textbox", { name: "Link da playlist" });
+    const field = screen.getByRole("textbox", { name: "Link ou nome da playlist" });
     await user.type(field, "https://www.youtube.com/playlist?list=PLx0sYbCqOb8TBPRdmBHs5Iftvv9TPboYG");
     await user.click(screen.getByRole("button", { name: "Importar" }));
     expect(await screen.findByText(/exige uma chave da API do Google/)).toBeInTheDocument();
@@ -173,5 +203,58 @@ describe("Minhas playlists", () => {
     await user.click(screen.getByRole("button", { name: "Importar" }));
     await waitFor(() => expect(window.location.hash).toMatch(/^#\/p\/p/));
     expect(await screen.findByText("100 faixas importadas do Deezer.")).toBeInTheDocument();
+  });
+});
+
+describe("Importar playlist", () => {
+  async function importer() {
+    const user = userEvent.setup();
+    wrap(<LibraryPage />);
+    await screen.findByText("Nenhuma playlist ainda");
+    const field = screen.getByRole("textbox", { name: "Link ou nome da playlist" });
+    const submit = async (text: string, button = "Importar") => {
+      await user.clear(field);
+      await user.type(field, text);
+      await user.click(screen.getByRole("button", { name: button }));
+    };
+    return { user, submit };
+  }
+
+  it("importa pelo link do botão Compartilhar do app do Deezer (link.deezer.com/s/…), mesmo com frase em volta", async () => {
+    const { submit } = await importer();
+    await submit("Ouça no Deezer: https://link.deezer.com/s/30mAVu3pLtvGQuthQUK9b");
+    await waitFor(() => expect(window.location.hash).toMatch(/^#\/p\/p/));
+    expect(await screen.findByText("100 faixas importadas do Deezer.")).toBeInTheDocument();
+  });
+
+  it("explica link de álbum, link vencido e playlist privada sem erro técnico", async () => {
+    const { submit } = await importer();
+    await submit("https://link.deezer.com/s/33YUXFGT262a7innvHZZT");
+    expect(await screen.findByText(/Esse link é de um álbum do Deezer, não de uma playlist/)).toBeInTheDocument();
+    await submit("https://link.deezer.com/s/31Wq4dKe1ARDAb5TeNIGh");
+    expect(await screen.findByText(/pode ter vencido ou estar incompleto/)).toBeInTheDocument();
+    await submit("https://www.deezer.com/playlist/1");
+    expect(await screen.findByText(/Ela pode ser privada: no app, deixe a playlist pública/)).toBeInTheDocument();
+    await submit("https://example.com/qualquer");
+    expect(await screen.findByText(/Esse link não é de uma playlist do Deezer/)).toBeInTheDocument();
+    expect(screen.queryByText(/not_found|upstream|502|404/)).not.toBeInTheDocument();
+  });
+
+  it("procura playlists públicas do Deezer pelo nome e importa a escolhida", async () => {
+    const { user, submit } = await importer();
+    await submit("rock", "Buscar");
+    const results = await screen.findByRole("list", { name: "Playlists do Deezer encontradas" });
+    const first = await within(results).findByRole("button", { name: "Importar Rock Nacional, de anonymous, 39 faixas" });
+    await user.click(first);
+    await waitFor(() => expect(window.location.hash).toMatch(/^#\/p\/p/));
+  });
+
+  it("do Spotify traz o nome e sugere playlists do Deezer com esse nome", async () => {
+    const { user, submit } = await importer();
+    await submit("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M");
+    expect(await screen.findByText(/O Spotify só libera o nome: “Today’s Top Hits”/)).toBeInTheDocument();
+    expect(await screen.findByRole("list", { name: "Playlists do Deezer encontradas" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Criar só com o nome “Today’s Top Hits”" }));
+    await waitFor(() => expect(window.location.hash).toMatch(/^#\/p\/p/));
   });
 });

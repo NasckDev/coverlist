@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = 5191;
+/** E2E_PORT troca a porta quando a 5191 já está ocupada (o servidor existente seria reaproveitado). */
+const PORT = Number(process.env.E2E_PORT ?? 5191);
 
 /**
  * E2E determinístico: o build de produção roda no `vite preview` e toda chamada ao proxy é
