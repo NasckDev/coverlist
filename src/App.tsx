@@ -23,7 +23,7 @@ const TITLES: Record<Route["name"], string> = {
 function Page({ route }: { route: Route }) {
   switch (route.name) {
     case "explore":
-      return <ExplorePage />;
+      return <ExplorePage filter={{ group: route.group, era: route.era, scope: route.scope }} />;
     case "collection":
       return <CollectionPage key={route.id} id={route.id} />;
     case "library":

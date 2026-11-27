@@ -2,6 +2,8 @@ import appleRss from "../fixtures/apple-rss-br.json" with { type: "json" };
 import deezerNoData from "../fixtures/deezer-error-nodata.json" with { type: "json" };
 import deezerPlaylist from "../fixtures/deezer-playlist-top-worldwide.json" with { type: "json" };
 import deezerSearch from "../fixtures/deezer-search-anitta.json" with { type: "json" };
+import deezerPlaylistSearch from "../fixtures/deezer-search-playlist-rock.json" with { type: "json" };
+import deezerShare from "../fixtures/deezer-share-redirects.json" with { type: "json" };
 import deezerTrack from "../fixtures/deezer-track.json" with { type: "json" };
 import itunesLookup from "../fixtures/itunes-lookup-br.json" with { type: "json" };
 import itunesSearch from "../fixtures/itunes-search-anitta.json" with { type: "json" };
@@ -14,12 +16,19 @@ import type { FetchLike } from "../../server/http";
  * Usado pelo MSW (testes de componente) e pelo Playwright (E2E): mesma normalização, zero rede.
  */
 export const fixtureFetch: FetchLike = async (url) => {
+  const share = /^https:\/\/link\.deezer\.com\/s\/([A-Za-z0-9]+)$/.exec(url);
+  if (share) {
+    const recorded = (deezerShare.responses as Record<string, { status: number; location: string } | undefined>)[share[1]];
+    const status = recorded?.status ?? 404;
+    return { ok: false, status, headers: { get: (name) => (name.toLowerCase() === "location" ? (recorded?.location ?? null) : null) }, text: async () => "" };
+  }
   let body: unknown = null;
   if (url.startsWith("https://rss.marketingtools.apple.com/")) body = appleRss;
   else if (url.startsWith("https://itunes.apple.com/lookup")) body = itunesLookup;
   else if (url.startsWith("https://itunes.apple.com/search")) body = itunesSearch;
   else if (/^https:\/\/api\.deezer\.com\/playlist\/1$/.test(url)) body = deezerNoData;
   else if (url.startsWith("https://api.deezer.com/playlist/")) body = deezerPlaylist;
+  else if (url.startsWith("https://api.deezer.com/search/playlist")) body = deezerPlaylistSearch;
   else if (url.startsWith("https://api.deezer.com/search")) body = deezerSearch;
   else if (url.startsWith("https://api.deezer.com/track/")) body = deezerTrack;
   else if (url.startsWith("https://open.spotify.com/oembed")) body = spotifyOembed;

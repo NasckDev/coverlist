@@ -156,3 +156,90 @@ dialog.keys-dlg{width:min(440px,calc(100vw - 24px))}
 kbd{font:600 12px/1 var(--ui);padding:5px 7px;border:1px solid var(--line);border-bottom-width:2px;border-radius:7px;background:var(--field);color:var(--text)}
 /* Explorar: a grade de cada seção estica para preencher a largura (sem coluna vazia no fim). */
 .section .grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))}
+
+/* ---------- Explorar: grupo (Tudo, Paradas, Décadas, Gêneros) e subfiltro, no mesmo traço da pílula do topo ---------- */
+.explore-nav{display:grid;gap:12px;justify-items:start;margin:calc(-1 * clamp(8px,2vw,24px)) 0 clamp(24px,3.4vw,40px)}
+.group-nav a{height:40px;padding:0 18px;display:flex;align-items:center;justify-content:center;border-radius:9px;font-weight:600;font-size:14.5px;text-decoration:none;color:var(--muted);transition:color .3s;white-space:nowrap}
+.group-nav a[aria-current="page"]{color:var(--panel)}
+.group-nav a:not([aria-current="page"]):hover{color:var(--text)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;min-height:36px;padding:0 14px;border-radius:99px;border:1px solid var(--line);background:var(--panel);font-size:14px;font-weight:500;text-decoration:none;color:var(--text);transition:background .2s,color .2s,border-color .2s}
+.chip:hover{background:var(--hover)}
+.chip[aria-current="page"]{background:var(--text);border-color:var(--text);color:var(--panel)}
+.chip.all{color:var(--muted)}
+.section-title{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+.section-title .count{font:600 14px/1 var(--ui);color:var(--muted)}
+.see-all{margin:16px 0 0}
+.see-all .ghost{height:44px}
+.see-all svg{rotate:180deg}
+@media (max-width:520px){.section .grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){
+  .explore-nav{justify-items:stretch}
+  .group-nav a{flex:1;padding:0 6px;font-size:14px}
+}
+
+/* cartão: o play fica sobre o selo do vinil ("baixar a agulha") e leva direto à prévia */
+.ccard-item{position:relative;container-type:inline-size}
+.ccard-play{--s:min(52px,max(44px,20cqi));position:absolute;right:calc(21cqi - var(--s) / 2);top:calc(83cqi - var(--s) / 2);z-index:3;width:var(--s);height:var(--s);border-radius:50%;display:grid;place-items:center;background:var(--text);color:var(--panel);border:2px solid var(--panel);box-shadow:0 6px 18px rgba(0,0,0,.3);transition:transform .25s var(--ease)}
+.ccard-play svg{width:18px;height:18px;margin-left:2px}
+.ccard-play:hover{transform:scale(1.08)}
+.ccard-item:has(.ccard:hover) .ccard-play{translate:0 -3px}
+.ccard-play{transition:transform .25s var(--ease),translate .35s var(--ease)}
+.ccard-play:focus-visible{outline-offset:3px}
+
+/* ---------- voltar sempre visível ---------- */
+.back-btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px 0 10px;border-radius:12px;border:1px solid var(--line);background:var(--field);font-weight:600;font-size:14px;text-decoration:none;color:var(--text);max-width:100%}
+.back-btn span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.back-btn svg{width:18px;height:18px;flex:none}
+.back-btn:hover{background:var(--hover)}
+.panel-back{margin:-6px 0 18px;align-self:flex-start}
+.page-back{margin:0 0 18px}
+.mbar{display:none}
+.float{display:flex;gap:8px;box-shadow:none}
+.float>*{box-shadow:0 4px 18px rgba(0,0,0,.2)}
+.float .back-btn{min-height:38px;background:var(--panel)}
+@media (max-width:900px){
+  .mbar{order:-2;position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;background:color-mix(in srgb,var(--chrome) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .mbar .back-btn{background:var(--panel)}
+  .mbar-brand{width:44px;height:44px;display:grid;place-items:center;flex:none}
+  .mbar-brand i{width:22px;height:22px;border-radius:50%;background:radial-gradient(circle,var(--panel) 0 16%,var(--focus) 17% 36%,var(--text) 37%)}
+  .panel-back,.float{display:none}
+}
+
+/* ---------- cabeçalho da coleção / playlist ---------- */
+.col-head{margin:0 0 16px}
+.col-head-top{display:flex;gap:14px;align-items:center}
+.col-art{position:relative;flex:none;width:84px;aspect-ratio:1;border-radius:14px;overflow:hidden;background:var(--label);container-type:inline-size}
+.col-art .mdisc{position:absolute;inset:9%;border-radius:50%;background:radial-gradient(circle closest-side,transparent 0 38%,#0b0b0c 39% 96%,#050505 97%);box-shadow:0 0 0 1px rgba(255,255,255,.08)}
+.col-art .mdisc::before{content:"";position:absolute;inset:0;border-radius:50%;background:repeating-radial-gradient(circle,transparent 0 3.4cqi,rgba(255,255,255,.07) 3.5cqi 3.7cqi);-webkit-mask:radial-gradient(circle closest-side,transparent 0 40%,#000 41%);mask:radial-gradient(circle closest-side,transparent 0 40%,#000 41%)}
+.col-art .mlabel{position:absolute;inset:31%;border-radius:50%;background:#555 center/cover}
+.col-art .mlabel::after{content:"";position:absolute;inset:44%;border-radius:50%;background:var(--label)}
+.col-art.spinning .mdisc{animation:spin 3.2s linear infinite}
+@keyframes spin{to{rotate:360deg}}
+.col-head-text{min-width:0}
+.col-kicker{margin:0;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.col-title{margin:2px 0 0;font:700 26px/1 var(--display);letter-spacing:-.02em;overflow-wrap:anywhere}
+.col-desc{margin:6px 0 0;color:var(--muted);font-size:14px}
+.stats{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:14px 0 0;padding:0}
+.stats li{padding:4px 10px;border-radius:99px;background:var(--hover);font-size:13px;color:var(--muted)}
+.stats b{color:var(--text);font-weight:600}
+.col-source{margin:12px 0 0;font-size:13px;color:var(--muted)}
+.col-source a{display:inline-flex;align-items:center;gap:4px;color:var(--text);font-weight:500}
+.col-source svg{width:13px;height:13px}
+.col-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0 0}
+.col-actions .solid,.col-actions .ghost{height:44px;border-radius:12px}
+.solid[disabled],.ghost[disabled]{opacity:.5;cursor:not-allowed}
+.related{margin:22px 0 8px}
+.related .chips{gap:6px}
+.related .chip{min-height:36px;font-size:13.5px}
+
+/* ---------- importar playlist: resultados por nome ---------- */
+.importer{display:grid;gap:0}
+.pl-results{max-height:340px;overflow-y:auto}
+.pl-results .src{color:var(--text)}
+.pl-results button[disabled]{opacity:.6}
+.name-only{margin:8px 0 0;justify-self:start;height:40px}
+@media (pointer:coarse){
+  .chip{min-height:44px}
+  .pl-results button{min-height:48px}
+}

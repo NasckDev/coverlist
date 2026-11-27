@@ -3,6 +3,8 @@ import appleRss from "../fixtures/apple-rss-br.json";
 import deezerNoData from "../fixtures/deezer-error-nodata.json";
 import deezerPlaylist from "../fixtures/deezer-playlist-top-worldwide.json";
 import deezerSearch from "../fixtures/deezer-search-anitta.json";
+import deezerPlaylistSearch from "../fixtures/deezer-search-playlist-rock.json";
+import deezerShare from "../fixtures/deezer-share-redirects.json";
 import deezerTrack from "../fixtures/deezer-track.json";
 import itunesLookup from "../fixtures/itunes-lookup-br.json";
 import itunesSearch from "../fixtures/itunes-search-anitta.json";
@@ -12,17 +14,20 @@ import { CACHE_POLICY, createHandler, OP_NAMES, type CoverlistResponse } from ".
 import { resetCaches } from "../../server/sources";
 import type { FetchLike } from "../../server/http";
 
-type Route = (url: string, signal?: AbortSignal) => { status: number; body: unknown } | Promise<{ status: number; body: unknown }>;
+type Reply = { status: number; body: unknown; headers?: Record<string, string> };
+type Route = (url: string, signal?: AbortSignal) => Reply | Promise<Reply>;
 
 function fakeFetch(route: Route) {
   const calls: string[] = [];
+  const redirects: (string | undefined)[] = [];
   const fetch: FetchLike = async (url, init) => {
     calls.push(url);
-    const { status, body } = await route(url, init?.signal);
+    redirects.push(init?.redirect);
+    const { status, body, headers = {} } = await route(url, init?.signal);
     const text = typeof body === "string" ? body : JSON.stringify(body);
-    return { ok: status >= 200 && status < 300, status, headers: { get: () => null }, text: async () => text };
+    return { ok: status >= 200 && status < 300, status, headers: { get: (name) => headers[name.toLowerCase()] ?? null }, text: async () => text };
   };
-  return { fetch, calls };
+  return { fetch, calls, redirects };
 }
 
 const fixtures: Route = (url) => {
@@ -31,14 +36,20 @@ const fixtures: Route = (url) => {
   if (url.startsWith("https://itunes.apple.com/search")) return { status: 200, body: itunesSearch };
   if (url.startsWith("https://api.deezer.com/playlist/3155776842")) return { status: 200, body: deezerPlaylist };
   if (url.startsWith("https://api.deezer.com/playlist/")) return { status: 200, body: deezerNoData };
+  if (url.startsWith("https://api.deezer.com/search/playlist")) return { status: 200, body: deezerPlaylistSearch };
   if (url.startsWith("https://api.deezer.com/search")) return { status: 200, body: deezerSearch };
+  const share = /^https:\/\/link\.deezer\.com\/s\/([A-Za-z0-9]+)$/.exec(url);
+  if (share) {
+    const recorded = (deezerShare.responses as Record<string, { status: number; location: string }>)[share[1]];
+    if (recorded) return { status: recorded.status, body: "", headers: { location: recorded.location } };
+  }
   if (url.startsWith("https://api.deezer.com/track/")) return { status: 200, body: deezerTrack };
   if (url.startsWith("https://open.spotify.com/oembed")) return { status: 200, body: spotifyOembed };
   return { status: 500, body: "unexpected" };
 };
 
 function call(query: string, options: { method?: string; route?: Route; timeoutMs?: number } = {}) {
-  const { fetch, calls } = fakeFetch(options.route ?? fixtures);
+  const { fetch, calls, redirects } = fakeFetch(options.route ?? fixtures);
   const handler = createHandler({ fetch, timeoutMs: options.timeoutMs, retryDelayMs: 0 });
   const headers = new Map<string, string>();
   let status = 0;
@@ -58,6 +69,7 @@ function call(query: string, options: { method?: string; route?: Route; timeoutM
     body: body as Record<string, unknown>,
     headers,
     calls,
+    redirects,
   }));
 }
 
@@ -67,7 +79,7 @@ const cacheOf = (policy: { sMaxAge: number; swr: number }) => `public, s-maxage=
 
 describe("lista fechada de operações e validação", () => {
   it("expõe só as operações previstas", () => {
-    expect(OP_NAMES).toEqual(["collections", "collection", "charts", "playlist", "search", "track", "lookup", "spotify"]);
+    expect(OP_NAMES).toEqual(["collections", "collection", "charts", "playlist", "search", "track", "lookup", "spotify", "playlists", "shortlink"]);
   });
 
   it.each([
@@ -86,6 +98,13 @@ describe("lista fechada de operações e validação", () => {
     ["op=playlist&id=../../user/1", "invalid_id"],
     ["op=track&id=99999999999999999", "invalid_id"],
     ["op=spotify&id=abc", "invalid_id"],
+    ["op=playlists&q=a", "invalid_query"],
+    ["op=playlists&q=rock&limit=26", "invalid_limit"],
+    ["op=playlists&q=rock&url=https://evil.example", "unknown_param"],
+    ["op=shortlink&code=abc", "invalid_code"],
+    ["op=shortlink&code=../../x", "invalid_code"],
+    ["op=shortlink&code=https%3A%2F%2Fevil.example", "invalid_code"],
+    [`op=shortlink&code=${"a".repeat(41)}`, "invalid_code"],
   ])("recusa %s com 400 %s sem chamar a origem", async (query, code) => {
     const result = await call(query);
     expect(result.status).toBe(400);
@@ -225,6 +244,42 @@ describe("operações", () => {
     const result = await call("op=playlist&id=1");
     expect(result.status).toBe(404);
     expect(result.body).toEqual({ error: "not_found" });
+  });
+
+  it("playlists busca playlists públicas do Deezer pelo nome", async () => {
+    const result = await call("op=playlists&q=rock&limit=5");
+    expect(result.status).toBe(200);
+    expect(result.calls).toEqual(["https://api.deezer.com/search/playlist?q=rock&limit=5"]);
+    const playlists = result.body.playlists as { id: string; title: string; total: number; artwork: { medium: string } | null }[];
+    expect(playlists[0]).toMatchObject({ id: "16006333303", title: "Rock Nacional", creator: "anonymous", total: 39 });
+    expect(playlists[0].artwork?.medium).toMatch(/^https:\/\/cdn-images\.dzcdn\.net\//);
+    expect(result.headers.get("cache-control")).toBe(cacheOf(CACHE_POLICY.playlists));
+  });
+
+  it("shortlink lê o redirect do link de compartilhar sem segui-lo e devolve a playlist", async () => {
+    const result = await call("op=shortlink&code=30mAVu3pLtvGQuthQUK9b");
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual({ kind: "playlist", id: "6524256744" });
+    expect(result.calls).toEqual(["https://link.deezer.com/s/30mAVu3pLtvGQuthQUK9b"]);
+    expect(result.redirects).toEqual(["manual"]);
+    expect(result.headers.get("cache-control")).toBe(cacheOf(CACHE_POLICY.shortlink));
+  });
+
+  it("shortlink de álbum diz o tipo, para o app explicar que não é playlist", async () => {
+    const result = await call("op=shortlink&code=33YUXFGT262a7innvHZZT");
+    expect(result.body).toEqual({ kind: "album", id: "1042626192" });
+  });
+
+  it("shortlink vencido (redirect para deezer-links-404) vira 404", async () => {
+    const result = await call("op=shortlink&code=31Wq4dKe1ARDAb5TeNIGh");
+    expect(result.status).toBe(404);
+    expect(result.body).toEqual({ error: "not_found" });
+  });
+
+  it("shortlink ignora destino fora do deezer.com", async () => {
+    const route: Route = () => ({ status: 301, body: "", headers: { location: "https://link.deezer.com/?dest=https%3A%2F%2Fevil.example%2Fplaylist%2F1" } });
+    const result = await call("op=shortlink&code=AbCdEf123", { route });
+    expect(result.status).toBe(404);
   });
 
   it("spotify devolve só o nome via oEmbed", async () => {

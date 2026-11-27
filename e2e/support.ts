@@ -23,6 +23,16 @@ export async function offline(page: Page, options: { splash?: boolean } = {}) {
 }
 
 export async function expectNoSeriousA11yIssues(page: Page) {
+  // O axe mede as cores na hora: no meio da transição de tema da capa, o texto ainda está interpolando
+  // e o contraste sai falso. Espera as transições e animações finitas (o vinil girando é infinito e fica de fora).
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => Number.isFinite(Number(a.effect?.getComputedTiming().endTime)))
+        .map((a) => a.finished.catch(() => undefined)),
+    ),
+  );
   const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
   const serious = result.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(" | ")}`)).toEqual([]);

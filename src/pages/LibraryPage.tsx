@@ -204,7 +204,7 @@ export function LibraryPage() {
           {fileNote}
         </p>
         <section className="lib-import" aria-labelledby="imp-h">
-          <h2 id="imp-h">Importar playlist por link</h2>
+          <h2 id="imp-h">Importar playlist (link ou nome)</h2>
           <ImportLink id="lib-link" onImported={onImported} cta="Importar" />
         </section>
 

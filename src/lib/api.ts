@@ -3,8 +3,10 @@ import type {
   CollectionDetail,
   CollectionSummary,
   ImportedPlaylist,
+  PlaylistSearchResult,
   ResolvedPreview,
   SearchResult,
+  ShortLinkTarget,
   SpotifyName,
 } from "../../server/types";
 
@@ -111,6 +113,19 @@ export function useSearch(term: string) {
 
 export const fetchDeezerPlaylist = (id: string) => apiGet<ImportedPlaylist>("playlist", { id });
 export const fetchSpotifyName = (id: string) => apiGet<SpotifyName>("spotify", { id });
+export const resolveDeezerShareLink = (code: string) => apiGet<ShortLinkTarget>("shortlink", { code });
+
+/** Playlists públicas do Deezer pelo nome: a alternativa quando a pessoa não tem (ou não consegue colar) o link. */
+export function usePlaylistSearch(term: string) {
+  const q = term.replace(/\s+/g, " ").trim();
+  return useQuery({
+    queryKey: ["playlists", q.toLowerCase()],
+    queryFn: ({ signal }) => apiGet<PlaylistSearchResult>("playlists", { q, limit: 12 }, signal),
+    enabled: q.length >= 2 && q.length <= 80,
+    staleTime: 15 * 60 * 1000,
+    placeholderData: (previous) => previous,
+  });
+}
 
 /** Prévia do iTunes que o lookup em lote da parada não trouxe: busca a faixa sozinha na hora de tocar. */
 export function resolveItunesPreview(client: QueryClient, trackId: string, country: string): Promise<ResolvedPreview> {
